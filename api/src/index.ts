@@ -2,48 +2,50 @@ import { Client, LocalStream } from "ion-sdk-js";
 import { IonSFUJSONRPCSignal } from "ion-sdk-js/lib/signal/json-rpc-impl";
 import { v4 as uuidv4 } from "uuid";
 
-export function MediaTunnel(uri: string = "ws://sfu.mediatun.muxable.com/ws") {
-  return {
-    async publish(stream: MediaStream) {
-      const id = uuidv4();
+export default class MediaTunnel {
+  constructor(private uri: string = "ws://sfu.mediatun.muxable.com:7000/ws") {}
 
-      const signal = new IonSFUJSONRPCSignal(uri);
+  async publish(stream: MediaStream) {
+    const id = uuidv4();
 
-      const client = new Client(signal);
+    const signal = new IonSFUJSONRPCSignal(this.uri);
 
-      await new Promise<void>((resolve) => (signal.onopen = resolve));
-      await client.join(id, id);
+    const client = new Client(signal);
 
-      client.publish(
-        new LocalStream(stream, {
-          codec: "vp8",
-          resolution: "hd",
-          audio: false,
-          video: true,
-          simulcast: false,
-        })
-      );
+    await new Promise<void>((resolve) => (signal.onopen = resolve));
+    await client.join(id, id);
 
-      return id;
-    },
-    async play(id: string) {
-      const signal = new IonSFUJSONRPCSignal(uri);
+    client.publish(
+      new LocalStream(stream, {
+        codec: "vp8",
+        resolution: "hd",
+        audio: false,
+        video: true,
+        simulcast: false,
+      })
+    );
 
-      const client = new Client(signal);
+    return id;
+  }
 
-      await new Promise<void>((resolve) => (signal.onopen = resolve));
-      await client.join(id, id);
+  async play(id: string) {
+    const signal = new IonSFUJSONRPCSignal(this.uri);
 
-      return await new Promise<MediaStream>(
-        (resolve) => (client.ontrack = (track, stream) => resolve(stream))
-      );
-    },
-    async attach(video: HTMLVideoElement, stream: MediaStream) {
-      video.srcObject = stream;
-      video.autoplay = true;
-      video.playsInline = true;
-      video.controls = false;
-      await video.play();
-    },
-  };
+    const client = new Client(signal);
+
+    await new Promise<void>((resolve) => (signal.onopen = resolve));
+    await client.join(id, id);
+
+    return await new Promise<MediaStream>(
+      (resolve) => (client.ontrack = (track, stream) => resolve(stream))
+    );
+  }
+
+  static async attach(video: HTMLVideoElement, stream: MediaStream) {
+    video.srcObject = stream;
+    video.autoplay = true;
+    video.playsInline = true;
+    video.controls = false;
+    await video.play();
+  }
 }
