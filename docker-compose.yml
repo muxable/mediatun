@@ -18,15 +18,15 @@ services:
     ports:
       - 1935:1935/tcp
       
-  srt:
-    build: ./ingest/srt
-    ports:
-      - 1935:1935/udp
+  # srt:
+  #   build: ./ingest/srt
+  #   ports:
+  #     - 1935:1935/udp
 
-  rist:
-    build: ./ingest/rist
-    ports:
-      - 5000:5000/udp
+  # rist:
+  #   build: ./ingest/rist
+  #   ports:
+  #     - 5000:5000/udp
 
   sfu:
     image: pionwebrtc/ion-sfu:latest-jsonrpc
