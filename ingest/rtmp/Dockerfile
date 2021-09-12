@@ -3,7 +3,7 @@ FROM golang:stretch AS pipeline
 # Install gstreamer
 WORKDIR /tmp/gstreamer
 
-RUN apt update && apt install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-doc gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio
+RUN apt-get update && apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-doc gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio
 
 # Build push/pull
 WORKDIR /go/src/github.com/muxable/mediatun/ingest/rtmp/
@@ -13,8 +13,8 @@ COPY go.sum .
 RUN go mod download
 COPY . .
 
-RUN go build cmd/push.go
-RUN go build cmd/pull.go
+RUN go build -o /push cmd/push/main.go
+RUN go build -o /pull cmd/pull/main.go
 
 FROM buildpack-deps:stretch
 
@@ -22,6 +22,9 @@ ENV NGINX_VERSION nginx-1.18.0
 ENV NGINX_RTMP_MODULE_VERSION 1.2.1
 
 RUN apt-get update
+
+# Install gstreamer
+RUN apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-doc gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio
 
 # Install nginx + nginx-rtmp-module
 RUN apt-get install -y ca-certificates openssl libssl-dev
@@ -56,8 +59,19 @@ RUN cd /tmp/build/nginx/${NGINX_VERSION} && \
 RUN rm -rf /tmp/build
 RUN rm -rf /var/lib/apt/lists/*
 
-COPY --from=pipeline /go/src/github.com/muxable/mediatun/ingest/rtmp/push /usr/local/bin/push
-COPY --from=pipeline /go/src/github.com/muxable/mediatun/ingest/rtmp/pull /usr/local/bin/pull
+# Forward logs to Docker
+RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
+    ln -sf /dev/stdout /var/log/nginx/info.log && \
+    ln -sf /dev/stderr /var/log/nginx/error.log && \
+    ln -sf /dev/stdout /var/log/push.log && \
+    ln -sf /dev/stderr /var/log/push.err && \
+    ln -sf /dev/stdout /var/log/pull.log && \
+    ln -sf /dev/stderr /var/log/pull.err
+
+COPY --from=pipeline /push /push
+COPY --from=pipeline /pull /pull
+COPY push.sh /push.sh
+COPY pull.sh /pull.sh
 COPY nginx.conf /etc/nginx/nginx.conf
 
 EXPOSE 1935

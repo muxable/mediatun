@@ -17,23 +17,32 @@ services:
     build: ./ingest/rtmp
     ports:
       - 1935:1935/tcp
+    depends_on:
+      - sfu
       
   # srt:
   #   build: ./ingest/srt
   #   ports:
   #     - 1935:1935/udp
+  # depends_on:
+  #     - sfu
 
   # rist:
   #   build: ./ingest/rist
   #   ports:
   #     - 5000:5000/udp
+  # depends_on:
+  #     - sfu
 
   sfu:
-    image: pionwebrtc/ion-sfu:latest-jsonrpc
+    image: pionwebrtc/ion-sfu:latest-allrpc
+    entrypoint: sfu
+    command: -c /configs/sfu.toml -jaddr :7000 -gaddr :50051
     ports:
       - "5000-5200:5000-5200/udp"
     expose:
-      - "7000"
+      - "7000"  # json-rpc
+      - "50051" # grpc
 
 volumes:
   caddy:

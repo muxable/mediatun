@@ -24,7 +24,7 @@ func main() {
 	videoPipeline := gst.CreatePipeline("rtmpsrc location=" + *source + " ! flvdemux ! h264parse ! decodebin ! vp8enc error-resilient=partitions keyframe-max-dist=10 auto-alt-ref=true cpu-used=5 deadline=1 ! appsink name=appsink")
 	audioPipeline := gst.CreatePipeline("rtmpsrc location=" + *source + " ! flvdemux ! aacparse ! avdec_aac ! audioresample ! audioconvert ! opusenc ! appsink name=appsink")
 
-	conn, err := grpc.Dial("sfu", grpc.WithInsecure())
+	conn, err := grpc.Dial("sfu:50051", grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
@@ -91,8 +91,8 @@ func main() {
 				client.Send(&proto.SignalRequest{Payload: &proto.SignalRequest_Description{Description: description}})
 			case *proto.SignalReply_Trickle:
 				// add the ice candidate.
-				if payload.Trickle.Target == proto.Trickle_SUBSCRIBER {
-					panic("unexpected trickle for subscriber")
+				if payload.Trickle.Target == proto.Trickle_PUBLISHER {
+					panic("unexpected trickle for publisher")
 				}
 				candidate := webrtc.ICECandidateInit{}
 				if err := json.Unmarshal([]byte(payload.Trickle.Init), &candidate); err != nil {
