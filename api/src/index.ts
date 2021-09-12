@@ -34,11 +34,14 @@ export default class MediaTunnel {
     const client = new Client(signal);
 
     await new Promise<void>((resolve) => (signal.onopen = resolve));
-    await client.join(id, id);
 
-    return await new Promise<MediaStream>(
+    const track = new Promise<MediaStream>(
       (resolve) => (client.ontrack = (track, stream) => resolve(stream))
     );
+
+    await client.join(id, uuidv4());
+
+    return await track;
   }
 
   static async attach(video: HTMLVideoElement, stream: MediaStream) {

@@ -1,0 +1,7 @@
+localhost
+
+root * /var/www/html
+
+reverse_proxy :1935 rtmp-nginx:1935
+reverse_proxy /ws ws://sfu:7000
+file_server

@@ -3,39 +3,42 @@
   <head>
     <meta charset="UTF-8" />
     <title>MediaTunnel | Muxable Labs</title>
-    <script src="https://unpkg.com/@muxable/mediatun@0.1.3/lib/index.min.js"></script>
+    <script src="https://unpkg.com/@muxable/mediatun@0.1.5/lib/index.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/mvp.css" />
   </head>
   <body>
     <header>
-      <h1>MediaTunnel: WebRTC without tears</h1>
-      <p>A simple API to move audio or video from one place to another.</p>
+      <h1>MediaTunnel</h1>
+      <p>Live audio and video without tears</p>
     </header>
     <main>
+      <script>
+        var uri = "wss://" + window.location.host + "/ws";
+      </script>
       <article>
         <p>Publish something</p>
         <pre>
             <code>
 const stream = await window.navigator.getUserMedia();
-const id = await new MediaTunnel().publish(stream);  // this id can be used anywhere to play the media.
+// use this id anywhere to play the media.
+const id = await new MediaTunnel().publish(stream);
             </code>
         </pre>
         <script>
-            function publish() {
-                navigator.mediaDevices.getUserMedia({video: true, audio: true})
-                    .then(function(stream) {
-                        console.log('publishing');
-                        return new MediaTunnel("ws://sfu.mediatun.muxable.com:7000/ws").publish(stream);
-                    })
-                    .then(function(id) {
-                        console.log(id);
-                        document.getElementById('publish-id').innerText = id;
-                    });
-            }
+          function publish() {
+            navigator.mediaDevices
+              .getUserMedia({ video: true, audio: true })
+              .then(function (stream) {
+                return new MediaTunnel(uri).publish(stream);
+              })
+              .then(function (id) {
+                document.getElementById("publish-id").innerText = id;
+              });
+          }
         </script>
         <a href="#" onclick="javascript:publish()"><strong>Run</strong></a>
         <p>Stream ID: <code id="publish-id"></code></p>
-        <p>Then play it!</p>
+        <p>Then play it! (hint: try playing this id in a new tab)</p>
         <pre>
             <code>
 const stream = await new MediaTunnel().play(id);
@@ -44,16 +47,45 @@ await MediaTunnel.attach(document.getElementById('video'), stream);
             </code>
         </pre>
         <script>
-            function play() {
-                const stream = new MediaTunnel("ws://sfu.mediatun.muxable.com:7000/ws").play(document.getElementById('play-id').value);
-                MediaTunnel.attach(document.getElementById('video'), stream);
-            }
+          function play() {
+            var id = document.getElementById("play-id").value;
+            new MediaTunnel(uri)
+              .play(id)
+              .then(function (stream) {
+                MediaTunnel.attach(document.getElementById("video"), stream);
+              });
+          }
         </script>
-        <p>Stream ID: <input type="text" id="play-id"></p>
+        <p>Stream ID: <input type="text" id="play-id" /></p>
         <a href="#" onclick="javascript:play()"><strong>Play</strong></a>
         <video id="video"></video>
-        <div id="root"></div>
-        <iframe src="https://forms.gle/KgfjAxiW7VhQ3umM6"></iframe>
+        <section>
+          <header>
+            <h2>Plans</h2>
+            <p>You take care of the video, we'll take care of the transport.</p>
+          </header>
+          <aside>
+            <h3>Self-hosted</h3>
+            <p>Docker deploy your own containers</p>
+            <p>Best-effort support</p>
+            <p>I mean it's free though :D</p>
+          </aside>
+          <aside>
+            <h3>Hobby</h3>
+            <p>Unlimited free WebRTC ingestion</p>
+            <p>10k minutes of playback free per month</p>
+            <p>$6 per 1000 minutes of playback</p>
+            <p>Publish and play media sources over WebRTC</p>
+          </aside>
+          <aside>
+            <h3>Pro</h3>
+            <p>Unlimited free ingestion</p>
+            <p>10k minutes of playback free per month</p>
+            <p>$10 per 1000 minutes of playback</p>
+            <p>Transcoding included</p>
+            <p>Publish and play media sources over WebRTC, RTMP, SRT, and RIST</p>
+          </aside>
+        </section>
       </article>
     </main>
   </body>

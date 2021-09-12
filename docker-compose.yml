@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  caddy:
+    image: caddy:2.0.0-alpine
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - caddy:/data
+      - ./web:/var/www/html
+      - ./Caddyfile:/etc/caddy/Caddyfile
+    depends_on:
+      - sfu
+      
+  rtmp:
+    build: ./ingest/rtmp
+    ports:
+      - 1935:1935/tcp
+      
+  srt:
+    build: ./ingest/srt
+    ports:
+      - 1935:1935/udp
+
+  rist:
+    build: ./ingest/rist
+    ports:
+      - 5000:5000/udp
+
+  sfu:
+    image: pionwebrtc/ion-sfu:latest-jsonrpc
+    ports:
+      - "5000-5200:5000-5200/udp"
+    expose:
+      - "7000"
+
+volumes:
+  caddy:
