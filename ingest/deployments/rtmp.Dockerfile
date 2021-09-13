@@ -5,16 +5,15 @@ WORKDIR /tmp/gstreamer
 
 RUN apt-get update && apt-get install -y libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-doc gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio
 
-# Build push/pull
-WORKDIR /go/src/github.com/muxable/mediatun/ingest/rtmp/
+# Build ingress/egress
+WORKDIR /go/src/github.com/muxable/mediatun/ingest
 
-COPY go.mod .
-COPY go.sum .
-RUN go mod download
 COPY . .
 
-RUN go build -o /push cmd/push/main.go
-RUN go build -o /pull cmd/pull/main.go
+RUN go mod download
+
+RUN go build -o /ingress cmd/rtmp/ingress/main.go
+RUN go build -o /egress cmd/rtmp/egress/main.go
 
 FROM buildpack-deps:stretch
 
@@ -63,16 +62,16 @@ RUN rm -rf /var/lib/apt/lists/*
 RUN ln -sf /dev/stdout /var/log/nginx/access.log && \
     ln -sf /dev/stdout /var/log/nginx/info.log && \
     ln -sf /dev/stderr /var/log/nginx/error.log && \
-    ln -sf /dev/stdout /var/log/push.log && \
-    ln -sf /dev/stderr /var/log/push.err && \
-    ln -sf /dev/stdout /var/log/pull.log && \
-    ln -sf /dev/stderr /var/log/pull.err
+    ln -sf /dev/stdout /var/log/ingress.log && \
+    ln -sf /dev/stderr /var/log/ingress.err && \
+    ln -sf /dev/stdout /var/log/egress.log && \
+    ln -sf /dev/stderr /var/log/egress.err
 
-COPY --from=pipeline /push /push
-COPY --from=pipeline /pull /pull
-COPY push.sh /push.sh
-COPY pull.sh /pull.sh
-COPY nginx.conf /etc/nginx/nginx.conf
+COPY --from=pipeline /ingress /ingress
+COPY --from=pipeline /egress /egress
+COPY deployments/ingress.sh /ingress.sh
+COPY deployments/egress.sh /egress.sh
+COPY configs/nginx.conf /etc/nginx/nginx.conf
 
 EXPOSE 1935
 CMD ["nginx", "-g", "daemon off;"]

@@ -3,4 +3,5 @@ localhost
 root * /var/www/html
 
 reverse_proxy /ws ws://sfu:7000
+reverse_proxy /sfuz sfu:80
 file_server

@@ -14,7 +14,9 @@ services:
       - sfu
       
   rtmp:
-    build: ./ingest/rtmp
+    build:
+      context: ingest
+      dockerfile: deployments/rtmp.Dockerfile
     ports:
       - 1935:1935/tcp
     depends_on:
@@ -37,10 +39,11 @@ services:
   sfu:
     image: pionwebrtc/ion-sfu:latest-allrpc
     entrypoint: sfu
-    command: -c /configs/sfu.toml -jaddr :7000 -gaddr :50051
+    command: -c /configs/sfu.toml -jaddr :7000 -gaddr :50051 -maddr :80
     ports:
       - "5000-5200:5000-5200/udp"
     expose:
+      - "80"
       - "7000"  # json-rpc
       - "50051" # grpc
 

@@ -11,11 +11,13 @@ import (
 const apiChannel = "ion-sfu"
 
 type Transport struct {
-	signal *proto.SFU_SignalClient
-	pc     *webrtc.PeerConnection
+	api        *webrtc.DataChannel
+	signal     proto.SFU_SignalClient
+	pc         *webrtc.PeerConnection
+	candidates []webrtc.ICECandidateInit
 }
 
-func NewTransport(role proto.Trickle_Target, signal *proto.SFU_SignalClient, config webrtc.Configuration) (*Transport, error) {
+func NewTransport(role proto.Trickle_Target, signal proto.SFU_SignalClient, config webrtc.Configuration) (*Transport, error) {
 	pc, err := webrtc.NewPeerConnection(config)
 	if err != nil {
 		return nil, err
@@ -41,11 +43,11 @@ func NewTransport(role proto.Trickle_Target, signal *proto.SFU_SignalClient, con
 			return
 		}
 
-		t.signal.Send(&proto.SignalRequest{
+		signal.Send(&proto.SignalRequest{
 			Payload: &proto.SignalRequest_Trickle{
-				Join: &proto.Trickle{
+				Trickle: &proto.Trickle{
 					Target: role,
-					Init: string(init),
+					Init:   string(init),
 				},
 			},
 		})
