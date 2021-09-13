@@ -1,6 +1,6 @@
 {
-  "name": "@muxable/mediatun",
-  "version": "0.1.5",
+  "name": "@muxable/mtun",
+  "version": "0.1.6",
   "description": "Creates a media tunnel with WebRTC.",
   "main": "lib/index.js",
   "browser": "lib/index.min.js",

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <title>MediaTunnel | Muxable Labs</title>
-    <script src="https://unpkg.com/@muxable/mediatun@0.1.5/lib/index.min.js"></script>
+    <script src="https://unpkg.com/@muxable/mtun@0.1.6/lib/index.min.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/mvp.css" />
   </head>
   <body>
@@ -16,9 +16,13 @@
         var uri = "wss://" + window.location.host + "/ws";
       </script>
       <article>
-        <p>Publish something</p>
+        <p>MediaTunnel lets you publish media easily from any source. For example, try publishing your browser's media.</p>
         <pre>
             <code>
+import MediaTunnel from '@muxable/mtun';
+
+...
+
 const stream = await window.navigator.getUserMedia();
 // use this id anywhere to play the media.
 const id = await new MediaTunnel().publish(stream);
@@ -38,9 +42,14 @@ const id = await new MediaTunnel().publish(stream);
         </script>
         <a href="#" onclick="javascript:publish()"><strong>Run</strong></a>
         <p>Stream ID: <code id="publish-id"></code></p>
-        <p>Then play it! (hint: try playing this id in a new tab)</p>
+        <hr/>
+        <p>Then take that stream id and play it below.</p>
         <pre>
             <code>
+import MediaTunnel from '@muxable/mtun';
+
+...
+
 const stream = await new MediaTunnel().play(id);
 // a convenience function to make playing a media stream easier.
 await MediaTunnel.attach(document.getElementById('video'), stream);
@@ -49,16 +58,22 @@ await MediaTunnel.attach(document.getElementById('video'), stream);
         <script>
           function play() {
             var id = document.getElementById("play-id").value;
-            new MediaTunnel(uri)
-              .play(id)
-              .then(function (stream) {
-                MediaTunnel.attach(document.getElementById("video"), stream);
-              });
+            new MediaTunnel(uri).play(id).then(function (stream) {
+              MediaTunnel.attach(document.getElementById("video"), stream);
+            });
           }
         </script>
         <p>Stream ID: <input type="text" id="play-id" /></p>
-        <a href="#" onclick="javascript:play()"><strong>Play</strong></a>
+        <div><a href="#" onclick="javascript:play()"><strong>Play</strong></a></div>
         <video id="video"></video>
+        <hr />
+        <p>Not convinced? That's okay, we're tough critics too. Try publishing from ffmpeg instead.</p>
+        <pre>
+          <code>
+$ ffmpeg -r 30 -f lavfi -i testsrc -f lavfi -i sine=f=440:b=4 -vf scale=1280:960 -vcodec libx264 -profile:v baseline -pix_fmt yuv420p -acodec aac -f flv rtmp://mtun.io/live/stream-id
+          </code>
+        </pre>
+        <p>And you'll be able to consume that stream above too. And if you're really not convinced, then try publishing your camera and microphone and consuming <code>rtmp://mtun.io/live/&lt;stream id&gt;</code>.</p>
         <section>
           <header>
             <h2>Plans</h2>
@@ -66,24 +81,41 @@ await MediaTunnel.attach(document.getElementById('video'), stream);
           </header>
           <aside>
             <h3>Self-hosted</h3>
-            <p>Docker deploy your own containers</p>
-            <p>Best-effort support</p>
-            <p>I mean it's free though :D</p>
+            <ul>
+              <li>Docker deploy your own containers</li>
+              <li>Best-effort support</li>
+              <li>I mean it's free though :D</li>
+            </ul>
+            <a href="https://forms.gle/CqsPx86cPYFahm9d7">
+              <strong>Get started</strong></a
+            >
           </aside>
           <aside>
             <h3>Hobby</h3>
-            <p>Unlimited free WebRTC ingestion</p>
-            <p>10k minutes of playback free per month</p>
-            <p>$6 per 1000 minutes of playback</p>
-            <p>Publish and play media sources over WebRTC</p>
+            <ul>
+              <li>Unlimited free WebRTC ingestion</li>
+              <li>10k minutes of playback free per month</li>
+              <li>$6 per 1000 minutes of playback</li>
+              <li>Publish and play media sources over WebRTC</li>
+            </ul>
+            <a href="https://forms.gle/CqsPx86cPYFahm9d7">
+              <strong>Sign up</strong></a
+            >
           </aside>
           <aside>
             <h3>Pro</h3>
-            <p>Unlimited free ingestion</p>
-            <p>10k minutes of playback free per month</p>
-            <p>$10 per 1000 minutes of playback</p>
-            <p>Transcoding included</p>
-            <p>Publish and play media sources over WebRTC, RTMP, SRT, and RIST</p>
+            <ul>
+              <li>Unlimited free ingestion</li>
+              <li>10k minutes of playback free per month</li>
+              <li>$10 per 1000 minutes of playback</li>
+              <li>Transcoding included</li>
+              <li>
+                Publish and play media sources over WebRTC, RTMP, SRT, and RIST
+              </li>
+            </ul>
+            <a href="https://forms.gle/CqsPx86cPYFahm9d7">
+              <strong>Sign up</strong></a
+            >
           </aside>
         </section>
       </article>

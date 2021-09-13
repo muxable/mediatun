@@ -15,7 +15,7 @@ services:
       
   rtmp:
     build:
-      context: ingest
+      context: protocols
       dockerfile: deployments/rtmp.Dockerfile
     ports:
       - 1935:1935/tcp
@@ -23,14 +23,14 @@ services:
       - sfu
       
   # srt:
-  #   build: ./ingest/srt
+  #   build: ./protocols/srt
   #   ports:
   #     - 1935:1935/udp
   # depends_on:
   #     - sfu
 
   # rist:
-  #   build: ./ingest/rist
+  #   build: ./protocols/rist
   #   ports:
   #     - 5000:5000/udp
   # depends_on:
@@ -39,7 +39,7 @@ services:
   sfu:
     image: pionwebrtc/ion-sfu:latest-allrpc
     entrypoint: sfu
-    command: -c /configs/sfu.toml -jaddr :7000 -gaddr :50051 -maddr :80
+    command: -c /configs/sfu.toml -jaddr :7000 -gaddr :50051 -maddr :80 -v 3
     ports:
       - "5000-5200:5000-5200/udp"
     expose:
