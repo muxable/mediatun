@@ -46,9 +46,9 @@ services:
   #     - sfu
 
   sfu:
-    image: pionwebrtc/ion-sfu:latest-allrpc
-    entrypoint: sfu
-    command: -c /configs/sfu.toml -jaddr :7000 -gaddr :50051 -maddr :80 -v 3
+    build:
+      context: sfu
+    image: gcr.io/mediatunnel-325914/sfu:latest
     ports:
       - "5000-5200:5000-5200/udp"
     expose:
