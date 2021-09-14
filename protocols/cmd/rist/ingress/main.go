@@ -1,23 +1,24 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
-	rist "github.com/muxable/mediatun/internal/librist-go"
+	rist "github.com/muxable/mediatun/protocols/internal/librist-go"
 	ion "github.com/pion/ion-sdk-go"
 	"github.com/pion/webrtc/v3"
 )
 
 func main() {
 	source := flag.String("source", "rist://@:5000", "the rtmp source url to push from")
-	id := flag.String("id", "", "the id of the tunnel to push to")
 	destination := flag.String("destination", "sfu:50051", "the destination to push to")
 
 	flag.Parse()
-	
+
 	// Set up RIST.
 	profile := rist.PROFILE_MAIN
 	r := rist.NewReceiver(profile, nil)
@@ -136,11 +137,27 @@ type ConnectionStatusHandler struct {
 func (h *ConnectionStatusHandler) OnConnectionStatus(peer *rist.Peer, status rist.ConnectionStatus) {
 }
 
+type SessionMap struct {
+	sync.RWMutex
+	data map[uint16]string
+}
+
 type OobHandler struct {
+	sessionMap *SessionMap
 }
 
 func (h *OobHandler) OnReceiveOob(oobBlock *rist.OobBlock) int {
-	fmt.Printf("on receive oob")
+	b := oobBlock.GetPayload()
+	s := struct {
+		virtDstPort uint16 `json:"virt_dst_port"`
+		cname       string `json:"cname"`
+	}{}
+	if err := json.Unmarshal(b, &s); err != nil {
+		return 0
+	}
+	h.sessionMap.Lock()
+	defer h.sessionMap.Unlock()
+	h.sessionMap.data[s.virtDstPort] = s.cname
 	return 0
 }
 
@@ -153,20 +170,20 @@ func (h *StatsHandler) OnReceiveStats(stats *rist.Stats) int {
 }
 
 type ReceiverDataHandler struct {
+	sessionMap *SessionMap
 }
 
 func (h *ReceiverDataHandler) OnData(data *rist.DataBlock) int {
-	// find the matching transcoders
-	pushed := false
-	for key, transcoder := range h.demuxer.transcoders {
+	// get the cname corresponding to the data payload.
+	h.sessionMap.RLock()
+	defer h.sessionMap.RUnlock()
+	if cname, ok := h.sessionMap.data[data.GetVirtDstPort()]; ok {
+
+	}
 		if key.StreamId == data.GetVirtDstPort() {
 			pushed = true
 			transcoder.PushRaw(data.GetRawPayload())
 		}
-	}
-	if !pushed {
-		log.Printf("no transcoders found for stream id %d", data.GetVirtDstPort())
-	}
 	return 0
 }
 

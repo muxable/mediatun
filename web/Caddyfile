@@ -1,4 +1,8 @@
-localhost {
+www.mtun.io {
+    redir https://mtun.io{uri}
+}
+
+mtun.io {
     root * /var/www/html
 
     reverse_proxy /ws ws://sfu:7000
@@ -6,5 +10,6 @@ localhost {
         uri replace /sfuz /metrics
         reverse_proxy sfu:80
     }
+
     file_server
 }

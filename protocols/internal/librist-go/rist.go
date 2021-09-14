@@ -67,6 +67,10 @@ func goConnectionStatusHandlerOnConnectionStatus(arg unsafe.Pointer, peer *C.str
 
 type OobBlock C.struct_rist_oob_block
 
+func (b *OobBlock) GetPayload() []byte {
+	return C.GoBytes(b.payload, C.int(uint64(b.payload_len)))
+}
+
 type OobHandler interface {
 	OnReceiveOob(oob_block *OobBlock) int
 }

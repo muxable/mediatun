@@ -9,7 +9,7 @@
   <body>
     <header>
       <h1>MediaTunnel</h1>
-      <p>Live audio and video without tears</p>
+      <p>Live audio and video without tears, from <a href="https://muxable.com">Muxable Labs</a></p>
     </header>
     <main>
       <script>
@@ -65,7 +65,7 @@ await MediaTunnel.attach(document.getElementById('video'), stream);
         </script>
         <p>Stream ID: <input type="text" id="play-id" /></p>
         <div><a href="#" onclick="javascript:play()"><strong>Play</strong></a></div>
-        <video id="video"></video>
+        <video id="video" width="640"></video>
         <hr />
         <p>Not convinced? That's okay, we're tough critics too. Try publishing from ffmpeg instead.</p>
         <pre>

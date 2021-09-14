@@ -1,22 +1,31 @@
-version: "3.9"
+version: "3"
 
 services:
-  caddy:
-    image: caddy:2.0.0-alpine
+  web:
+    build:
+      context: web
+    image: gcr.io/mediatunnel-325914/web:latest
     ports:
       - 80:80
       - 443:443
     volumes:
       - caddy:/data
-      - ./web:/var/www/html
-      - ./Caddyfile:/etc/caddy/Caddyfile
     depends_on:
       - sfu
+    labels:
+      kompose.service.type: loadbalancer
+      kompose.service.expose: mtun.io
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
       
   rtmp:
     build:
       context: protocols
       dockerfile: deployments/rtmp.Dockerfile
+    image: gcr.io/mediatunnel-325914/rtmp:latest
     ports:
       - 1935:1935/tcp
     depends_on:
@@ -46,6 +55,9 @@ services:
       - "80"
       - "7000"  # json-rpc
       - "50051" # grpc
+    labels:
+      kompose.service.type: nodeport
+      kompose.service.expose: "true"
 
 volumes:
   caddy:
