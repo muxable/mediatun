@@ -56,7 +56,6 @@ services:
       - "7000"  # json-rpc
       - "50051" # grpc
     labels:
-      kompose.service.type: nodeport
       kompose.service.expose: "true"
 
 volumes:
