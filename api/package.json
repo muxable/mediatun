@@ -1,6 +1,6 @@
 {
   "name": "@muxable/mtun",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Creates a media tunnel with WebRTC.",
   "main": "lib/index.js",
   "browser": "lib/index.min.js",
@@ -13,7 +13,7 @@
     "lib/**/*"
   ],
   "exports": {
-    "./": "./lib/"
+    ".": "./lib/index.js"
   },
   "author": "muxfdz@gmail.com",
   "license": "MIT",
