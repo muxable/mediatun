@@ -4,10 +4,12 @@ services:
   web:
     build:
       context: web
+    entrypoint: /usr/bin/caddy run --config /etc/caddy/Caddyfile.json
     image: gcr.io/mediatunnel-325914/web:latest
     ports:
       - 80:80
       - 443:443
+      - 1935:1935
     volumes:
       - caddy:/data
     depends_on:
@@ -15,6 +17,7 @@ services:
     labels:
       kompose.service.type: loadbalancer
       kompose.service.expose: mtun.io
+      kompose.image-pull-policy: Always
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost"]
       interval: 1m30s
@@ -26,10 +29,12 @@ services:
       context: protocols
       dockerfile: deployments/rtmp.Dockerfile
     image: gcr.io/mediatunnel-325914/rtmp:latest
-    ports:
-      - 1935:1935/tcp
+    expose:
+      - "1935"
     depends_on:
       - sfu
+    labels:
+      kompose.image-pull-policy: Always
       
   # srt:
   #   build: ./protocols/srt
@@ -45,6 +50,21 @@ services:
   # depends_on:
   #     - sfu
 
+  # rtp:
+  #   build:
+  #     context: rtp
+  #   image: gcr.io/mediatunnel-325914/rtp:latest
+  #   ports:
+  #     - 6000:6000/udp
+  #     - 6001:6001/udp
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - capabilities: [gpu]
+  #   depends_on:
+  #     - sfu
+
   sfu:
     build:
       context: sfu
@@ -57,6 +77,12 @@ services:
       - "50051" # grpc
     labels:
       kompose.service.expose: "true"
+      kompose.image-pull-policy: Always
+    healthcheck:
+      test: ["CMD", "/bin/grpc_health_probe", "-addr=:50051"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   caddy:
