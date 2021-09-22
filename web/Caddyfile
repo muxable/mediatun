@@ -2,7 +2,7 @@ www.mtun.io {
     redir https://mtun.io{uri}
 }
 
-mtun.io {
+mtun.io, localhost {
     root * /var/www/html
 
     reverse_proxy /ws ws://sfu:7000
