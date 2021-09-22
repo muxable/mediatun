@@ -1,10 +1,19 @@
 #include "gst.h"
 
-GstElement *pipeline;
-GstBus *bus;
-GstMessage *msg;
+#include <gst/app/gstappsrc.h>
 
-static gboolean gstreamer_receive_bus_call(GstBus *bus, GstMessage *msg, gpointer data)
+GMainLoop *main_loop = NULL;
+
+void gstreamer_init(void)
+{
+    gst_init(NULL, NULL);
+
+    main_loop = g_main_loop_new(NULL, FALSE);
+
+    g_main_loop_run(main_loop);
+}
+
+static gboolean gstreamer_bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 {
     switch (GST_MESSAGE_TYPE(msg))
     {
@@ -33,62 +42,98 @@ static gboolean gstreamer_receive_bus_call(GstBus *bus, GstMessage *msg, gpointe
     return TRUE;
 }
 
-void *gstreamer_run(char *pipeline)
+static GstFlowReturn gstreamer_pull_buffer(GstElement *object, gpointer user_data)
 {
-    gst_init(NULL, NULL);
+    GstSample *sample = NULL;
+    GstBuffer *buffer = NULL;
+    gpointer copy = NULL;
+    gsize copy_size = 0;
 
-    pipeline =
-        gst_parse_launch("playbin uri=https://www.freedesktop.org/software/gstreamer-sdk/data/media/sintel_trailer-480p.webm",
-                         NULL);
+    g_signal_emit_by_name(object, "pull-sample", &sample);
+    if (sample)
+    {
+        buffer = gst_sample_get_buffer(sample);
+        if (buffer)
+        {
+            gst_buffer_extract_dup(buffer, 0, gst_buffer_get_size(buffer), &copy, &copy_size);
+            goHandlePipelineBuffer(copy, copy_size, GST_BUFFER_DURATION(buffer), (void *)user_data);
+        }
+        gst_sample_unref(sample);
+    }
 
-    gst_element_set_state(pipeline, GST_STATE_PLAYING);
-
-    /* Wait until error or EOS */
-    bus = gst_element_get_bus(pipeline);
-    msg =
-        gst_bus_timed_pop_filtered(bus, GST_CLOCK_TIME_NONE,
-                                   GST_MESSAGE_ERROR | GST_MESSAGE_EOS);
-
-    /* Free resources */
-    if (msg != NULL)
-        gst_message_unref(msg);
-    gst_object_unref(bus);
-    gst_element_set_state(pipeline, GST_STATE_NULL);
-    gst_object_unref(pipeline);
-    return 0;
+    return GST_FLOW_OK;
 }
 
-void gstreamer_receive_start_pipeline(GstElement *pipeline)
+static GstFlowReturn gstreamer_pull_rtcp(GstElement *object, gpointer user_data)
 {
+    GstSample *sample = NULL;
+    GstBuffer *buffer = NULL;
+    gpointer copy = NULL;
+    gsize copy_size = 0;
+
+    g_signal_emit_by_name(object, "pull-sample", &sample);
+    if (sample)
+    {
+        buffer = gst_sample_get_buffer(sample);
+        if (buffer)
+        {
+            gst_buffer_extract_dup(buffer, 0, gst_buffer_get_size(buffer), &copy, &copy_size);
+            goHandlePipelineRtcp(copy, copy_size, GST_BUFFER_DURATION(buffer), (void *)user_data);
+        }
+        gst_sample_unref(sample);
+    }
+
+    return GST_FLOW_OK;
+}
+
+GstElement *gstreamer_run(void *data)
+{
+    GstElement *pipeline =
+        gst_parse_launch(
+            "rtpsession name=audiortpsession rtp-profile=avpf rtpsession name=videortpsession rtp-profile=avpf"
+            "     appsrc name=rtpsrc time=live port=5002 caps='application/x-rtp,media=(string)audio,clock-rate=(int)48000,encoding-name=(string)OPUS,payload=(int)96' !"
+            "         audiortpsession.recv_rtp_sink"
+            "     audiortpsession.recv_rtp_src !"
+            "         rtprtxreceive payload-type-map='application/x-rtp-pt-map,96=(uint)97' !"
+            "         rtpssrcdemux name=audiortpssrcdemux ! rtpjitterbuffer do-lost=true do-retransmission=true !"
+            "         rtpopusdepay ! decodebin ! audioconvert ! audioresample ! appsink name=appsink"
+            "     audiortpsession.send_rtcp_src ! appsink name=rtcpsink sync=false async=false"
+            "     appsrc name=rtcpsrc ! audiortpsession.recv_rtcp_sink",
+            NULL);
+
     GstBus *bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
-    gst_bus_add_watch(bus, gstreamer_receive_bus_call, NULL);
+    gst_bus_add_watch(bus, gstreamer_bus_call, NULL);
     gst_object_unref(bus);
 
+    GstElement *appsink = gst_bin_get_by_name(GST_BIN(pipeline), "appsink");
+    g_object_set(appsink, "emit-signals", TRUE, NULL);
+    g_signal_connect(appsink, "new-sample", G_CALLBACK(gstreamer_pull_buffer), data);
+    gst_object_unref(appsink);
+
+    GstElement *rtcpsink = gst_bin_get_by_name(GST_BIN(pipeline), "rtcpsink");
+    g_object_set(rtcpsink, "emit-signals", TRUE, NULL);
+    g_signal_connect(rtcpsink, "new-sample", G_CALLBACK(gstreamer_pull_rtcp), data);
+    gst_object_unref(rtcpsink);
+
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
+
+    return pipeline;
 }
 
-void gstreamer_receive_stop_pipeline(GstElement *pipeline) { gst_element_set_state(pipeline, GST_STATE_NULL); }
-
-void gstreamer_receive_push_video_buffer(GstElement *pipeline, void *buffer, int len)
+void gstreamer_push_rtp(GstElement *pipeline, void *buffer, int len)
 {
-    GstElement *src = gst_bin_get_by_name(GST_BIN(pipeline), "videosrc");
-    if (src != NULL)
-    {
-        gpointer p = g_memdup(buffer, len);
-        GstBuffer *buffer = gst_buffer_new_wrapped(p, len);
-        gst_app_src_push_buffer(GST_APP_SRC(src), buffer);
-        gst_object_unref(src);
-    }
+    GstElement *src = gst_bin_get_by_name(GST_BIN(pipeline), "rtpsrc");
+    gpointer p = g_memdup2(buffer, len);
+    GstBuffer *b = gst_buffer_new_wrapped(p, len);
+    gst_app_src_push_buffer(GST_APP_SRC(src), b);
+    gst_object_unref(src);
 }
 
-void gstreamer_receive_push_audio_buffer(GstElement *pipeline, void *buffer, int len)
+void gstreamer_push_rtcp(GstElement *pipeline, void *buffer, int len)
 {
-    GstElement *src = gst_bin_get_by_name(GST_BIN(pipeline), "audiosrc");
-    if (src != NULL)
-    {
-        gpointer p = g_memdup(buffer, len);
-        GstBuffer *buffer = gst_buffer_new_wrapped(p, len);
-        gst_app_src_push_buffer(GST_APP_SRC(src), buffer);
-        gst_object_unref(src);
-    }
+    GstElement *src = gst_bin_get_by_name(GST_BIN(pipeline), "rtcpsrc");
+    gpointer p = g_memdup2(buffer, len);
+    GstBuffer *b = gst_buffer_new_wrapped(p, len);
+    gst_app_src_push_buffer(GST_APP_SRC(src), b);
+    gst_object_unref(src);
 }

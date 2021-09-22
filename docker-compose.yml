@@ -70,7 +70,7 @@ services:
       context: sfu
     image: gcr.io/mediatunnel-325914/sfu:latest
     ports:
-      - "5000-5200:5000-5200/udp"
+      - "5000:5000/udp"
     expose:
       - "80"
       - "7000"  # json-rpc
@@ -78,11 +78,11 @@ services:
     labels:
       kompose.service.expose: "true"
       kompose.image-pull-policy: Always
-    healthcheck:
-      test: ["CMD", "/bin/grpc_health_probe", "-addr=:50051"]
-      interval: 1m30s
-      timeout: 10s
-      retries: 3
+    # healthcheck:
+    #   test: ["CMD", "/bin/grpc_health_probe", "-addr=:50051"]
+    #   interval: 1m30s
+    #   timeout: 10s
+    #   retries: 3
 
 volumes:
   caddy:

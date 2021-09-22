@@ -1,4 +1,4 @@
-FROM ubuntu:20.04
+FROM mcr.microsoft.com/vscode/devcontainers/base:hirsute
 
 # Install dependencies
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
@@ -121,7 +121,12 @@ RUN rm -rf /var/lib/apt/lists/*
 
 # Build gstreamer.
 RUN git clone --no-checkout https://gitlab.freedesktop.org/gstreamer/gst-build.git && cd gst-build && git checkout 1.18.5
-RUN cd gst-build && meson build -D debug=false -D optimization=3 -D b_lto=true -D buildtype=release && ninja -C build install
+# RUN cd gst-build && meson build -D debug=false -D optimization=3 -D b_lto=true -D buildtype=release && ninja -C build install
+RUN cd gst-build && meson build && ninja -C build install
+
+# Build librist.
+RUN git clone https://code.videolan.org/rist/librist.git
+RUN cd librist && meson build && ninja -C build install
 
 # Install golang.
 RUN wget https://dl.google.com/go/go1.17.1.linux-amd64.tar.gz && tar -C /usr/local -xzf go1.17.1.linux-amd64.tar.gz && rm go1.17.1.linux-amd64.tar.gz

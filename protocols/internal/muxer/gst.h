@@ -6,11 +6,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-GstElement *gstreamer_receive_create_pipeline(char *pipeline);
-void gstreamer_receive_start_pipeline(GstElement *pipeline);
-void gstreamer_receive_stop_pipeline(GstElement *pipeline);
-void gstreamer_receive_push_video_buffer(GstElement *pipeline, void *buffer, int len);
-void gstreamer_receive_push_audio_buffer(GstElement *pipeline, void *buffer, int len);
-void gstreamer_receive_start_mainloop(void);
+extern void goHandlePipelineBuffer(void *, int, int, void *);
+extern void goHandlePipelineRtcp(void *, int, int, void *);
+
+void gstreamer_init(void);
+GstElement *gstreamer_run(void *);
+void gstreamer_push_rtcp(GstElement *, void *, int);
+void gstreamer_push_rtp(GstElement *, void *, int);
 
 #endif
