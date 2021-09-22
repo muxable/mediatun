@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/haivision/srtgo v0.0.0-20210809105856-d4ed7d4623c4
 	github.com/mattn/go-pointer v0.0.1
+	github.com/pion/ion-sdk-go v0.6.0
 	github.com/pion/webrtc/v3 v3.1.0
 )
 
@@ -23,7 +24,6 @@ require (
 	github.com/pion/ice/v2 v2.1.12 // indirect
 	github.com/pion/interceptor v0.1.0 // indirect
 	github.com/pion/ion-log v1.2.0 // indirect
-	github.com/pion/ion-sdk-go v0.6.0 // indirect
 	github.com/pion/ion-sfu v1.10.4-0.20210517163413-6e6e24505e51 // indirect
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/mdns v0.0.5 // indirect
