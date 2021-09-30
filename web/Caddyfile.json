@@ -106,6 +106,16 @@
               ]
             }
           ]
+        },
+        "grpc": {
+          "listen": ["0.0.0.0:50051"],
+          "routes": [
+            {
+              "handle": [
+                { "handler": "proxy", "upstreams": [{ "dial": ["sfu:50051"] }] }
+              ]
+            }
+          ]
         }
       }
     }

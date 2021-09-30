@@ -9,7 +9,8 @@ services:
     ports:
       - 80:80
       - 443:443
-      - 1935:1935
+      - 1935:1935   # RTMP
+      - 50051:50051 # gRPC
     volumes:
       - caddy:/data
     depends_on:
@@ -50,27 +51,27 @@ services:
   # depends_on:
   #     - sfu
 
-  # rtp:
-  #   build:
-  #     context: rtp
-  #   image: gcr.io/mediatunnel-325914/rtp:latest
-  #   ports:
-  #     - 6000:6000/udp
-  #     - 6001:6001/udp
-  #   deploy:
-  #     resources:
-  #       reservations:
-  #         devices:
-  #           - capabilities: [gpu]
-  #   depends_on:
-  #     - sfu
+  rtp:
+    build:
+      context: rtp
+    image: gcr.io/mediatunnel-325914/rtp:latest
+    ports:
+      - 6000:6000/udp
+      - 6001:6001/udp
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - capabilities: [gpu]
+    depends_on:
+      - sfu
 
   sfu:
     build:
       context: sfu
     image: gcr.io/mediatunnel-325914/sfu:latest
     ports:
-      - "5000:5000/udp"
+      - "5000-5200:5000-5200/udp"
     expose:
       - "80"
       - "7000"  # json-rpc
