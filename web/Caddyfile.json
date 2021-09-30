@@ -116,6 +116,26 @@
               ]
             }
           ]
+        },
+        "rtp:6000": {
+          "listen": ["0.0.0.0:6000"],
+          "routes": [
+            {
+              "handle": [
+                { "handler": "proxy", "upstreams": [{ "dial": ["rtp:6000"] }] }
+              ]
+            }
+          ]
+        },
+        "rtp:6001": {
+          "listen": ["0.0.0.0:6001"],
+          "routes": [
+            {
+              "handle": [
+                { "handler": "proxy", "upstreams": [{ "dial": ["rtp:6001"] }] }
+              ]
+            }
+          ]
         }
       }
     }
