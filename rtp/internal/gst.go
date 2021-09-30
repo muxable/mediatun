@@ -58,7 +58,7 @@ func (p *Pipeline) Start(pipelineType PipelineType) error {
 	case PipelineTypeAudio:
 		pipelineStr := C.CString(`
 			rtpsession name=rtpsession rtp-profile=avpf sdes="application/x-rtp-source-sdes,cname=(string)\"mtun.io\""
-				appsrc name=rtpappsrc is-live=true caps="application/x-rtp,media=(string)video,clock-rate=(int)48000,encoding-name=(string)OPUS,payload=(int)96" ! queue !
+				appsrc name=rtpappsrc is-live=true caps="application/x-rtp,media=(string)audio,clock-rate=(int)48000,encoding-name=(string)OPUS,payload=(int)96" ! queue !
 					rtpsession.recv_rtp_sink
 				appsrc name=rtcpappsrc is-live=true caps="application/x-rtcp" ! queue ! rtpsession.recv_rtcp_sink
 				rtpsession.recv_rtp_src !
