@@ -25,6 +25,8 @@ items:
     metadata:
       annotations:
         kompose.cmd: kompose convert -o k8s.yml
+        kompose.image-pull-policy: Always
+        kompose.service.expose: "true"
         kompose.version: 1.22.0 (955b78124)
       creationTimestamp: null
       labels:
@@ -948,6 +950,8 @@ items:
     metadata:
       annotations:
         kompose.cmd: kompose convert -o k8s.yml
+        kompose.image-pull-policy: Always
+        kompose.service.expose: "true"
         kompose.version: 1.22.0 (955b78124)
       creationTimestamp: null
       labels:
@@ -963,6 +967,8 @@ items:
         metadata:
           annotations:
             kompose.cmd: kompose convert -o k8s.yml
+            kompose.image-pull-policy: Always
+            kompose.service.expose: "true"
             kompose.version: 1.22.0 (955b78124)
           creationTimestamp: null
           labels:
@@ -970,6 +976,7 @@ items:
         spec:
           containers:
             - image: gcr.io/mediatunnel-325914/rtp:latest
+              imagePullPolicy: Always
               name: rtp
               ports:
                 - containerPort: 6000
@@ -979,6 +986,27 @@ items:
               resources: {}
           restartPolicy: Always
     status: {}
+  - apiVersion: extensions/v1beta1
+    kind: Ingress
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -o k8s.yml
+        kompose.image-pull-policy: Always
+        kompose.service.expose: "true"
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: rtp
+      name: rtp
+    spec:
+      rules:
+        - http:
+            paths:
+              - backend:
+                  serviceName: rtp
+                  servicePort: 6000
+    status:
+      loadBalancer: {}
   - apiVersion: apps/v1
     kind: Deployment
     metadata:
