@@ -9,8 +9,6 @@ services:
     ports:
       - 80:80
       - 443:443
-      - 1935:1935   # RTMP
-      - 50051:50051 # gRPC
     volumes:
       - caddy:/data
     depends_on:
@@ -30,7 +28,7 @@ services:
       context: protocols
       dockerfile: deployments/rtmp.Dockerfile
     image: gcr.io/mediatunnel-325914/rtmp:latest
-    expose:
+    ports:
       - "1935"
     depends_on:
       - sfu
