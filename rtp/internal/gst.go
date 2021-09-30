@@ -44,13 +44,13 @@ func (p *Pipeline) Start(pipelineType PipelineType) error {
 	case PipelineTypeVideo:
 		pipelineStr := C.CString(`
 			rtpsession name=rtpsession rtp-profile=avpf sdes="application/x-rtp-source-sdes,cname=(string)\"mtun.io\""
-				appsrc name=rtpappsrc is-live=true format=time caps="application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)H265,payload=(int)120,extmap-5=http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01" !
+				appsrc name=rtpappsrc is-live=true format=time caps="application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)VP8-DRAFT-IETF-01,payload=(int)120,extmap-5=http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01" !
 					rtpsession.recv_rtp_sink
 				appsrc name=rtcpappsrc is-live=true caps="application/x-rtcp" ! rtpsession.recv_rtcp_sink
 				rtpsession.recv_rtp_src !
 					rtprtxreceive payload-type-map="application/x-rtp-pt-map,120=(uint)121" !
 					rtpstorage size-time=220000000 ! rtpjitterbuffer do-lost=true do-retransmission=true name=rtpjitterbuffer ! 
-					rtph265depay ! decodebin ! vp8enc error-resilient=partitions keyframe-max-dist=10 auto-alt-ref=true cpu-used=5 deadline=1 ! appsink name=bufferappsink
+					rtpvp8depay ! appsink name=bufferappsink
 				rtpsession.send_rtcp_src ! appsink name=rtcpappsink sync=false async=false`)
 		defer C.free(unsafe.Pointer(pipelineStr))
 
