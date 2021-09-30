@@ -29,7 +29,7 @@ type PeerManager struct {
 	sources map[uint32]*Source
 }
 
-func NewPeerManager(ctx context.Context, timeout time.Duration, statsInterval time.Duration) *PeerManager {
+func NewPeerManager(ctx context.Context, timeout time.Duration, statsInterval time.Duration, debug string) *PeerManager {
 	m := &PeerManager{
 		peers:   make(map[string]*Peer),
 		sources: make(map[uint32]*Source),
@@ -75,7 +75,7 @@ func NewPeerManager(ctx context.Context, timeout time.Duration, statsInterval ti
 				return
 			case <-time.After(5 * time.Second):
 				var builder strings.Builder
-				builder.WriteString("---- peers ----\n")
+				builder.WriteString(fmt.Sprintf("---- %s peers ----\n", debug))
 				for ssrc, source := range m.sources {
 					builder.WriteString(fmt.Sprintf("%s -> %d\t%d peers, %d bps\n", source.cname, ssrc, source.peerCount, source.bitrate*8/int(statsInterval / time.Second)))
 					source.bitrate = 0

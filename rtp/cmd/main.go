@@ -183,7 +183,7 @@ func main() {
 	clientManager := internal.NewClientManager(5*time.Second, engine, os.Args[3])
 
 	videoServer := &Server{
-		peerManager: internal.NewPeerManager(context.Background(), 5*time.Second, 2*time.Second),
+		peerManager: internal.NewPeerManager(context.Background(), 5*time.Second, 2*time.Second, "video"),
 		sinks:       make(map[uint32]*Sink),
 		OnBuffer: func(cname string, buf []byte, duration time.Duration) {
 			client, err := clientManager.GetClient(cname)
@@ -199,7 +199,7 @@ func main() {
 	}
 
 	audioServer := &Server{
-		peerManager: internal.NewPeerManager(context.Background(), 5*time.Second, 2*time.Second),
+		peerManager: internal.NewPeerManager(context.Background(), 5*time.Second, 2*time.Second, "audio"),
 		sinks:       make(map[uint32]*Sink),
 		OnBuffer: func(cname string, buf []byte, duration time.Duration) {
 			client, err := clientManager.GetClient(cname)
