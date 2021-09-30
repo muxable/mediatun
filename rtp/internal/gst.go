@@ -101,6 +101,8 @@ func goHandleAppSinkBuffer(buffer unsafe.Pointer, bufferLen C.int, duration C.in
 	pipeline := pointer.Restore(data).(*Pipeline)
 	if pipeline.BufferSink != nil {
 		pipeline.BufferSink(C.GoBytes(buffer, bufferLen), time.Duration(duration))
+	} else {
+		panic("missing buffer sink")
 	}
 }
 
@@ -116,5 +118,7 @@ func goHandleRtcpAppSinkBuffer(buffer unsafe.Pointer, bufferLen C.int, duration 
 		if _, err := pipeline.RTCPSink.Write(pkt, nil); err != nil {
 			log.Printf("failed to write rtcp packet: %v", err)
 		}
+	} else {
+		panic("missing buffer sink")
 	}
 }
