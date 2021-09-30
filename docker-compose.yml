@@ -70,10 +70,10 @@ services:
     image: gcr.io/mediatunnel-325914/sfu:latest
     ports:
       - "5000-5200:5000-5200/udp"
-    expose:
-      - "80"
       - "7000"  # json-rpc
       - "50051" # grpc
+    expose:
+      - "80"
     labels:
       kompose.service.expose: "true"
       kompose.image-pull-policy: Always
