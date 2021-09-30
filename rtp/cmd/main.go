@@ -107,6 +107,7 @@ func (s *Server) Listen(addr string) {
 								if err != nil {
 									return 0, err
 								}
+								log.Printf("writing rtcp %v", pkts)
 								for _, peer := range s.peerManager.GetPeersForSSRC(ssrc) {
 									if _, err := pc.WriteTo(buf, peer); err != nil {
 										log.Printf("failed to write rtcp packet: %v", err)
