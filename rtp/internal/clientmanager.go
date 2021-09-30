@@ -15,8 +15,8 @@ type Client struct {
 	sdk         *ion.Client
 	lastUpdated time.Time
 
-	videoTrack *webrtc.TrackLocalStaticSample
-	audioTrack *webrtc.TrackLocalStaticSample
+	VideoTrack *webrtc.TrackLocalStaticSample
+	AudioTrack *webrtc.TrackLocalStaticSample
 }
 
 type ClientManager struct {
@@ -77,47 +77,41 @@ func (m *ClientManager) GetClient(cname string) (*Client, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		peerConnection := sdk.GetPubTransport().GetPeerConnection()
+
+		peerConnection.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
+			log.Printf("Connection state changed: %s", state)
+		})
+
+		if err = m.engine.AddClient(sdk); err != nil {
+			return nil, err
+		}
+
+		videoTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "video/vp8"}, "video", "video")
+		if err != nil {
+			return nil, err
+		}
+		if _, err = peerConnection.AddTrack(videoTrack); err != nil {
+			return nil, err
+		}
+
+		audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "audio/opus"}, "audio", "audio")
+		if err != nil {
+			return nil, err
+		}
+		if _, err = peerConnection.AddTrack(videoTrack); err != nil {
+			return nil, err
+		}
+		
 		m.clients[cname] = &Client{
 			sdk:         sdk,
 			lastUpdated: time.Now(),
+			VideoTrack:  videoTrack,
+			AudioTrack:  audioTrack,
 		}
+		
 		sdk.Join(cname, ion.NewJoinConfig().SetNoSubscribe())
 	}
 	return m.clients[cname], nil
-}
-
-// GetVideoTrack returns the VP8 video track for this client.
-func (c *Client) GetVideoTrack() (*webrtc.TrackLocalStaticSample, error) {
-	c.Lock()
-	defer c.Unlock()
-
-	if c.videoTrack == nil {
-		track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "video/vp8"}, "video", "pion2")
-		if err != nil {
-			return nil, err
-		}
-		c.videoTrack = track
-		if _, err := c.sdk.Publish(track); err != nil {
-			return nil, err
-		}
-	}
-	return c.videoTrack, nil
-}
-
-// GetAudioTrack returns the opus audio track for this client.
-func (c *Client) GetAudioTrack() (*webrtc.TrackLocalStaticSample, error) {
-	c.Lock()
-	defer c.Unlock()
-
-	if c.audioTrack == nil {
-		track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "audio/opus"}, "audio", "pion2")
-		if err != nil {
-			return nil, err
-		}
-		c.audioTrack = track
-		if _, err := c.sdk.Publish(track); err != nil {
-			return nil, err
-		}
-	}
-	return c.audioTrack, nil
 }

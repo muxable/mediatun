@@ -107,7 +107,6 @@ func (s *Server) Listen(addr string) {
 								if err != nil {
 									return 0, err
 								}
-								log.Printf("writing rtcp %v", pkts)
 								for _, peer := range s.peerManager.GetPeersForSSRC(ssrc) {
 									if _, err := pc.WriteTo(buf, peer); err != nil {
 										log.Printf("failed to write rtcp packet: %v", err)
@@ -175,7 +174,7 @@ func main() {
 		WebRTC: ion.WebRTCTransportConfig{
 			Configuration: webrtc.Configuration{
 				ICEServers: []webrtc.ICEServer{
-					{URLs: []string{"stun:stun.l.google.com:19302"}},
+					{URLs: []string{"stun:stun.stunprotocol.org:3478", "stun:stun.l.google.com:19302"}},
 				},
 			},
 		},
@@ -192,12 +191,7 @@ func main() {
 				log.Printf("failed to get client for cname %v: %v", cname, err)
 				return
 			}
-			track, err := client.GetVideoTrack()
-			if err != nil {
-				log.Printf("failed to get video track for cname %v: %v", cname, err)
-				return
-			}
-			if err := track.WriteSample(media.Sample{Data: buf, Duration: duration}); err != nil {
+			if err := client.VideoTrack.WriteSample(media.Sample{Data: buf, Duration: duration}); err != nil {
 				log.Printf("failed to write audio buffer to track: %v", err)
 			}
 		},
@@ -212,12 +206,7 @@ func main() {
 				log.Printf("failed to get client for cname %v: %v", cname, err)
 				return
 			}
-			track, err := client.GetAudioTrack()
-			if err != nil {
-				log.Printf("failed to get audio track for cname %v: %v", cname, err)
-				return
-			}
-			if err := track.WriteSample(media.Sample{Data: buf, Duration: duration}); err != nil {
+			if err := client.AudioTrack.WriteSample(media.Sample{Data: buf, Duration: duration}); err != nil {
 				log.Printf("failed to write audio buffer to track: %v", err)
 			}
 		},
