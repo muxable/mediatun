@@ -191,6 +191,7 @@ func main() {
 				log.Printf("failed to get client for cname %v: %v", cname, err)
 				return
 			}
+			log.Printf("writing sample len %d to %s", len(buf), cname)
 			if err := client.VideoTrack.WriteSample(media.Sample{Data: buf, Duration: duration}); err != nil {
 				log.Printf("failed to write audio buffer to track: %v", err)
 			}
