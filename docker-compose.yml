@@ -68,8 +68,8 @@ services:
     image: gcr.io/mediatunnel-325914/sfu:latest
     ports:
       - "5000-5200:5000-5200/udp"
-      - "7000"  # json-rpc
-      - "50051" # grpc
+      - 7000:7000  # json-rpc
+      - 50051:50051 # grpc
     expose:
       - "80"
     labels:
