@@ -10,8 +10,6 @@ services:
       - 80:80
       - 443:443
       - 1935:1935   # RTMP
-      - 6000:6000/udp # rtp
-      - 6001:6001/udp # rtp
       - 50051:50051 # gRPC
     volumes:
       - caddy:/data
@@ -60,6 +58,9 @@ services:
     ports:
       - 6000:6000/udp
       - 6001:6001/udp
+    labels:
+      kompose.service.expose: "true"
+      kompose.image-pull-policy: Always
     depends_on:
       - sfu
 
