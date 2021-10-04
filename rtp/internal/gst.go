@@ -1,20 +1,15 @@
 package internal
 
 /*
-#cgo CFLAGS: -I/usr/local/lib/x86_64-linux-gnu
-#cgo pkg-config: gstreamer-1.0 gstreamer-app-1.0 glib-2.0
+#cgo pkg-config: gstreamer-1.0 gstreamer-app-1.0
 #include "gst.h"
 */
 import "C"
 import (
 	"log"
-	"time"
 	"unsafe"
 
 	"github.com/mattn/go-pointer"
-	"github.com/pion/interceptor"
-	"github.com/pion/rtcp"
-	"github.com/pion/webrtc/v3"
 )
 
 func init() {
@@ -24,12 +19,9 @@ func init() {
 
 type Pipeline struct {
 	gstElement *C.GstElement
-
-	peerConnection webrtc.PeerConnection
-
-	RTPSrc   interceptor.RTPReader
-	RTCPSink interceptor.RTCPWriter
-	RTPSink  func([]byte, time.Duration)
+	
+	RTCPSink func([]byte) (int, error)
+	RTPSink  func([]byte) (int, error)
 }
 
 type PipelineType int
@@ -46,10 +38,9 @@ func (p *Pipeline) Start(pipelineType PipelineType) error {
 			rtpsession name=rtpsession rtp-profile=avpf sdes="application/x-rtp-source-sdes,cname=(string)\"mtun.io\""
 				appsrc name=rtpappsrc is-live=true format=time caps="application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)VP8-DRAFT-IETF-01,payload=(int)120,extmap-5=http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01" !
 					rtpsession.recv_rtp_sink
-				appsrc name=rtcpappsrc is-live=true caps="application/x-rtcp" ! rtpsession.recv_rtcp_sink
 				rtpsession.recv_rtp_src !
 					rtprtxreceive payload-type-map="application/x-rtp-pt-map,120=(uint)121" !
-					rtpstorage size-time=220000000 ! rtpjitterbuffer do-lost=true do-retransmission=true name=rtpjitterbuffer ! appsink name=bufferappsink
+					rtpjitterbuffer do-lost=true do-retransmission=true name=rtpjitterbuffer ! appsink name=bufferappsink
 				rtpsession.send_rtcp_src ! appsink name=rtcpappsink sync=false async=false`)
 		defer C.free(unsafe.Pointer(pipelineStr))
 
@@ -57,16 +48,16 @@ func (p *Pipeline) Start(pipelineType PipelineType) error {
 	case PipelineTypeAudio:
 		pipelineStr := C.CString(`
 			rtpsession name=rtpsession rtp-profile=avpf sdes="application/x-rtp-source-sdes,cname=(string)\"mtun.io\""
-				appsrc name=rtpappsrc is-live=true caps="application/x-rtp,media=(string)audio,clock-rate=(int)48000,encoding-name=(string)OPUS,payload=(int)96" !
+				appsrc name=rtpappsrc is-live=true format=time caps="application/x-rtp,media=(string)audio,clock-rate=(int)48000,encoding-name=(string)OPUS,payload=(int)96" !
 					rtpsession.recv_rtp_sink
-				appsrc name=rtcpappsrc is-live=true caps="application/x-rtcp" ! rtpsession.recv_rtcp_sink
 				rtpsession.recv_rtp_src !
 					rtprtxreceive payload-type-map="application/x-rtp-pt-map,96=(uint)97" !
-					rtpstorage size-time=220000000 ! rtpjitterbuffer do-lost=true do-retransmission=true name=rtpjitterbuffer ! appsink name=bufferappsink
+					rtpjitterbuffer do-lost=true do-retransmission=true name=rtpjitterbuffer ! appsink name=bufferappsink
 				rtpsession.send_rtcp_src ! appsink name=rtcpappsink sync=false async=false`)
 		defer C.free(unsafe.Pointer(pipelineStr))
 
 		p.gstElement = C.gstreamer_start(pipelineStr, pointer.Save(p))
+
 	}
 	return nil
 }
@@ -96,9 +87,12 @@ func (p *Pipeline) Close() {
 
 //export goHandleAppSinkBuffer
 func goHandleAppSinkBuffer(buffer unsafe.Pointer, bufferLen C.int, duration C.int, data unsafe.Pointer) {
+	defer C.free(buffer)
 	pipeline := pointer.Restore(data).(*Pipeline)
 	if pipeline.RTPSink != nil {
-		pipeline.RTPSink(C.GoBytes(buffer, bufferLen), time.Duration(duration))
+		if _, err := pipeline.RTPSink(C.GoBytes(buffer, bufferLen)); err != nil {
+			log.Printf("failed to write rtp packet: %v", err)
+		}
 	} else {
 		panic("missing buffer sink")
 	}
@@ -108,12 +102,7 @@ func goHandleAppSinkBuffer(buffer unsafe.Pointer, bufferLen C.int, duration C.in
 func goHandleRtcpAppSinkBuffer(buffer unsafe.Pointer, bufferLen C.int, duration C.int, data unsafe.Pointer) {
 	pipeline := pointer.Restore(data).(*Pipeline)
 	if pipeline.RTCPSink != nil {
-		pkt, err := rtcp.Unmarshal(C.GoBytes(buffer, bufferLen))
-		if err != nil {
-			log.Printf("failed to unmarshal rtcp packet: %v", err)
-			return
-		}
-		if _, err := pipeline.RTCPSink.Write(pkt, nil); err != nil {
+		if _, err := pipeline.RTCPSink(C.GoBytes(buffer, bufferLen)); err != nil {
 			log.Printf("failed to write rtcp packet: %v", err)
 		}
 	} else {

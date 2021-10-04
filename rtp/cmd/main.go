@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/muxable/mediatun/rtp/internal"
-	"github.com/pion/interceptor"
 	ion "github.com/pion/ion-sdk-go"
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
@@ -23,15 +22,9 @@ const (
 	ListenTypeAudio = ListenType(1)
 )
 
-type Sink struct {
-	rtp  interceptor.RTPReader
-	rtcp interceptor.RTCPReader
-}
-
 type Server struct {
 	peerManager *internal.PeerManager
-	sinks       map[uint32]*Sink
-	OnRTP       func(string, []byte, time.Duration)
+	OnRTP       func(string, []byte)
 }
 
 func (s *Server) Listen(addr string, pipelineType internal.PipelineType) {
@@ -66,93 +59,66 @@ func (s *Server) Listen(addr string, pipelineType internal.PipelineType) {
 			}
 			for _, pkt := range cp {
 				for _, ssrc := range pkt.DestinationSSRC() {
-					s.peerManager.MarkReceived(sender, ssrc, n)
+					s.peerManager.MarkReceived(sender, internal.SSRC(ssrc), n)
 					// check if this packet has a cname associated with it.
 					if sdes, ok := pkt.(*rtcp.SourceDescription); ok {
 						for _, chunk := range sdes.Chunks {
 							for _, item := range chunk.Items {
-								if item.Type == rtcp.SDESCNAME {
-									s.peerManager.SetCNAME(ssrc, item.Text)
+								if item.Type == rtcp.SDESCNAME && !s.peerManager.IsConfigured(internal.SSRC(ssrc)) {
+									cname := item.Text
+									pipeline := &internal.Pipeline{
+										RTPSink: func(buffer []byte) (int, error) {
+											s.OnRTP(cname, buffer)
+											return len(buffer), nil
+										},
+										RTCPSink: func(buffer []byte) (int, error) {
+											// choose peers to send the rtcp packet to.
+											pkts, err := rtcp.Unmarshal(buffer)
+											if err != nil {
+												return 0, err
+											}
+											for _, pkt := range pkts {
+												for _, ssrc := range pkt.DestinationSSRC() {
+													for _, peer := range s.peerManager.GetPeersForSSRC(internal.SSRC(ssrc)) {
+														if _, err := pc.WriteTo(buffer, peer); err != nil {
+															log.Printf("failed to write rtcp packet: %v", err)
+														}
+													}
+												}
+											}
+											return len(buffer), nil
+										},
+									}
+
+									pipeline.Start(pipelineType)
+									
+									s.peerManager.Configure(internal.SSRC(ssrc), internal.CName(cname), pipeline)
+
+									log.Printf("configured peer %s for ssrc %d", cname, ssrc)
 								}
 							}
 						}
 					}
-					// write the packet.
-					if sink, ok := s.sinks[ssrc]; ok {
-						// forward the rtp packet to the cname's appsrc.
-						if _, _, err := sink.rtcp.Read(buf[:n], nil); err != nil {
-							log.Printf("failed to write rtp packet to pipeline: %v", err)
-						}
-					} else {
-						chain := interceptor.NewChain([]interceptor.Interceptor{})
 
-						// create a new pipeline for this ssrc.
-						pipeline := &internal.Pipeline{
-							RTPSink: func(buffer []byte, duration time.Duration) {
-								cname, err := s.peerManager.GetCNAME(ssrc)
-								if err != nil {
-									log.Printf("failed to get cname for ssrc %d: %v", ssrc, err)
-								}
-								s.OnRTP(cname, buffer, duration)
-							},
-							RTCPSink: chain.BindRTCPWriter(interceptor.RTCPWriterFunc(func(pkts []rtcp.Packet, _ interceptor.Attributes) (int, error) {
-								// choose peers to send the rtcp packet to.
-								buf, err := rtcp.Marshal(pkts)
-								if err != nil {
-									return 0, err
-								}
-								for _, peer := range s.peerManager.GetPeersForSSRC(ssrc) {
-									if _, err := pc.WriteTo(buf, peer); err != nil {
-										log.Printf("failed to write rtcp packet: %v", err)
-									}
-								}
-								return len(buf), nil
-							})),
-						}
-
-						pipeline.Start(pipelineType)
-
-						sink := &Sink{
-							rtp: chain.BindRemoteStream(&interceptor.StreamInfo{SSRC: ssrc, RTPHeaderExtensions: []interceptor.RTPHeaderExtension{
-								{
-									URI: "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
-									ID:  1,
-								},
-							}}, interceptor.RTPReaderFunc(func(b []byte, _ interceptor.Attributes) (int, interceptor.Attributes, error) {
-								if err := pipeline.WriteRTP(b); err != nil {
-									log.Printf("failed to write rtp packet to pipeline: %v", err)
-									return 0, nil, err
-								}
-								return len(b), nil, nil
-							})),
-							rtcp: chain.BindRTCPReader(interceptor.RTCPReaderFunc(func(b []byte, _ interceptor.Attributes) (int, interceptor.Attributes, error) {
-								if err := pipeline.WriteRTCP(b); err != nil {
-									log.Printf("failed to write rtcp packet to pipeline: %v", err)
-									return 0, nil, err
-								}
-								return len(b), nil, nil
-							})),
-						}
-						s.sinks[ssrc] = sink
-						if _, _, err := sink.rtcp.Read(buf[:n], nil); err != nil {
-							log.Printf("failed to write rtp packet to pipeline: %v", err)
-						}
+					pipeline, err := s.peerManager.GetPipeline(internal.SSRC(ssrc))
+					// check if we have a pipeline for this cname.
+					if err != nil  || pipeline == nil {
+						log.Printf("failed to get pipeline for ssrc: %v", err)
+						continue
+					} else if err := pipeline.WriteRTP(buf[:n]); err != nil {
+						log.Printf("failed to write rtp packet to pipeline: %v", err)
 					}
 				}
 			}
-			continue
 		} else {
 			// ensure the peer is bound to the ssrc.
-			s.peerManager.MarkReceived(sender, p.SSRC, n)
+			s.peerManager.MarkReceived(sender, internal.SSRC(p.SSRC), n)
 
-			// write the packet.
-			if sink, ok := s.sinks[p.SSRC]; ok {
-				// forward the rtp packet to the cname's appsrc.
-				if _, _, err := sink.rtp.Read(buf[:n], nil); err != nil {
-					log.Printf("failed to write rtp packet to pipeline: %v", err)
-				}
-			} else {
-				log.Printf("received rtp package for ssrc %d before rtcp cname data", p.SSRC)
+			pipeline, err := s.peerManager.GetPipeline(internal.SSRC(p.SSRC))
+			if err != nil || pipeline == nil {
+				log.Printf("received rtp packet with SSRC %d before pipeline construction %v", p.SSRC, err)
+			} else if err := pipeline.WriteRTP(buf[:n]); err != nil {
+				log.Printf("failed to write rtp packet to pipeline: %v", err)
 			}
 		}
 	}
@@ -178,14 +144,12 @@ func main() {
 
 	videoServer := &Server{
 		peerManager: internal.NewPeerManager(context.Background(), 5*time.Second, 2*time.Second, "video"),
-		sinks:       make(map[uint32]*Sink),
-		OnRTP: func(cname string, buf []byte, duration time.Duration) {
+		OnRTP: func(cname string, buf []byte) {
 			client, err := clientManager.GetClient(cname)
 			if err != nil {
 				log.Printf("failed to get client for cname %v: %v", cname, err)
 				return
 			}
-			log.Printf("writing video sample len %d dur %d to %s", len(buf), duration, cname)
 			if _, err := client.VideoTrack.Write(buf); err != nil {
 				log.Printf("failed to write audio buffer to track: %v", err)
 			}
@@ -194,14 +158,12 @@ func main() {
 
 	audioServer := &Server{
 		peerManager: internal.NewPeerManager(context.Background(), 5*time.Second, 2*time.Second, "audio"),
-		sinks:       make(map[uint32]*Sink),
-		OnRTP: func(cname string, buf []byte, duration time.Duration) {
+		OnRTP: func(cname string, buf []byte) {
 			client, err := clientManager.GetClient(cname)
 			if err != nil {
 				log.Printf("failed to get client for cname %v: %v", cname, err)
 				return
 			}
-			log.Printf("writing audio sample len %d dur %d to %s", len(buf), duration, cname)
 			if _, err := client.AudioTrack.Write(buf); err != nil {
 				log.Printf("failed to write audio buffer to track: %v", err)
 			}

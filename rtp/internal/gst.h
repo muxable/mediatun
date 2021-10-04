@@ -7,7 +7,6 @@
 #include <stdlib.h>
 
 extern void goHandleAppSinkBuffer(void *, int, int, void *);
-extern void goHandleRtcpAppSinkBuffer(void *, int, int, void *);
 
 void gstreamer_init(void);
 void gstreamer_main_loop(void);
