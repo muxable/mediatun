@@ -101,4 +101,4 @@ credentials = "pion=ion,pion2=ion2"
 
 [log]
 # 0 - INFO 1 - DEBUG 2 - TRACE
-v = 1
+v = 2

@@ -14,7 +14,6 @@ import (
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
-	"github.com/pion/webrtc/v3/pkg/media"
 )
 
 type ListenType uint32
@@ -29,18 +28,13 @@ type Sink struct {
 	rtcp interceptor.RTCPReader
 }
 
-type Source struct {
-	bitsRecv uint64
-	cname    string
-}
-
 type Server struct {
 	peerManager *internal.PeerManager
 	sinks       map[uint32]*Sink
-	OnBuffer    func(string, []byte, time.Duration)
+	OnRTP       func(string, []byte, time.Duration)
 }
 
-func (s *Server) Listen(addr string) {
+func (s *Server) Listen(addr string, pipelineType internal.PipelineType) {
 	pc, err := net.ListenPacket("udp", addr)
 	if err != nil {
 		panic(err)
@@ -94,12 +88,12 @@ func (s *Server) Listen(addr string) {
 
 						// create a new pipeline for this ssrc.
 						pipeline := &internal.Pipeline{
-							BufferSink: func(buffer []byte, duration time.Duration) {
+							RTPSink: func(buffer []byte, duration time.Duration) {
 								cname, err := s.peerManager.GetCNAME(ssrc)
 								if err != nil {
 									log.Printf("failed to get cname for ssrc %d: %v", ssrc, err)
 								}
-								s.OnBuffer(cname, buffer, duration)
+								s.OnRTP(cname, buffer, duration)
 							},
 							RTCPSink: chain.BindRTCPWriter(interceptor.RTCPWriterFunc(func(pkts []rtcp.Packet, _ interceptor.Attributes) (int, error) {
 								// choose peers to send the rtcp packet to.
@@ -116,7 +110,7 @@ func (s *Server) Listen(addr string) {
 							})),
 						}
 
-						pipeline.Start(internal.PipelineTypeVideo)
+						pipeline.Start(pipelineType)
 
 						sink := &Sink{
 							rtp: chain.BindRemoteStream(&interceptor.StreamInfo{SSRC: ssrc, RTPHeaderExtensions: []interceptor.RTPHeaderExtension{
@@ -180,19 +174,19 @@ func main() {
 		},
 	})
 
-	clientManager := internal.NewClientManager(5*time.Second, engine, os.Args[3])
+	clientManager := internal.NewClientManager(context.Background(), 5*time.Second, engine, os.Args[3])
 
 	videoServer := &Server{
 		peerManager: internal.NewPeerManager(context.Background(), 5*time.Second, 2*time.Second, "video"),
 		sinks:       make(map[uint32]*Sink),
-		OnBuffer: func(cname string, buf []byte, duration time.Duration) {
+		OnRTP: func(cname string, buf []byte, duration time.Duration) {
 			client, err := clientManager.GetClient(cname)
 			if err != nil {
 				log.Printf("failed to get client for cname %v: %v", cname, err)
 				return
 			}
 			log.Printf("writing video sample len %d dur %d to %s", len(buf), duration, cname)
-			if err := client.VideoTrack.WriteSample(media.Sample{Data: buf, Duration: duration}); err != nil {
+			if _, err := client.VideoTrack.Write(buf); err != nil {
 				log.Printf("failed to write audio buffer to track: %v", err)
 			}
 		},
@@ -201,22 +195,22 @@ func main() {
 	audioServer := &Server{
 		peerManager: internal.NewPeerManager(context.Background(), 5*time.Second, 2*time.Second, "audio"),
 		sinks:       make(map[uint32]*Sink),
-		OnBuffer: func(cname string, buf []byte, duration time.Duration) {
+		OnRTP: func(cname string, buf []byte, duration time.Duration) {
 			client, err := clientManager.GetClient(cname)
 			if err != nil {
 				log.Printf("failed to get client for cname %v: %v", cname, err)
 				return
 			}
-			log.Printf("writing audio sample len %d dur %d to %s", len(buf), duration,  cname)
-			if err := client.AudioTrack.WriteSample(media.Sample{Data: buf, Duration: duration}); err != nil {
+			log.Printf("writing audio sample len %d dur %d to %s", len(buf), duration, cname)
+			if _, err := client.AudioTrack.Write(buf); err != nil {
 				log.Printf("failed to write audio buffer to track: %v", err)
 			}
 		},
 	}
 
 	// listen for incoming rtp connections.
-	go videoServer.Listen(os.Args[1])
-	go audioServer.Listen(os.Args[2])
+	go videoServer.Listen(os.Args[1], internal.PipelineTypeVideo)
+	go audioServer.Listen(os.Args[2], internal.PipelineTypeAudio)
 
 	// block.
 	select {}

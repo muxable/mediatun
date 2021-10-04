@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"log"
 	"sync"
 	"time"
@@ -15,8 +16,8 @@ type Client struct {
 	sdk         *ion.Client
 	lastUpdated time.Time
 
-	VideoTrack *webrtc.TrackLocalStaticSample
-	AudioTrack *webrtc.TrackLocalStaticSample
+	VideoTrack *webrtc.TrackLocalStaticRTP
+	AudioTrack *webrtc.TrackLocalStaticRTP
 }
 
 type ClientManager struct {
@@ -26,24 +27,19 @@ type ClientManager struct {
 	addr   string
 
 	clients map[string]*Client
-
-	cancel chan bool
 }
 
-func NewClientManager(timeout time.Duration, engine *ion.Engine, addr string) *ClientManager {
-	cancel := make(chan bool)
+func NewClientManager(ctx context.Context, timeout time.Duration, engine *ion.Engine, addr string) *ClientManager {
 	m := &ClientManager{
 		clients: make(map[string]*Client),
 		engine:  engine,
 		addr:    addr,
-		cancel:  cancel,
 	}
 	// start a cleanup routine
 	go func() {
 		for {
 			select {
-			case <-cancel:
-				close(cancel)
+			case <-ctx.Done():
 				return
 			case <-time.After(timeout):
 				m.Lock()
@@ -59,11 +55,6 @@ func NewClientManager(timeout time.Duration, engine *ion.Engine, addr string) *C
 		}
 	}()
 	return m
-}
-
-// Close closes the Client manager.
-func (m *ClientManager) Close() {
-	m.cancel <- true
 }
 
 func (m *ClientManager) GetClient(cname string) (*Client, error) {
@@ -88,7 +79,7 @@ func (m *ClientManager) GetClient(cname string) (*Client, error) {
 			return nil, err
 		}
 
-		videoTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "video/vp8"}, "video", "video")
+		videoTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/vp8"}, "video", "video")
 		if err != nil {
 			return nil, err
 		}
@@ -96,22 +87,24 @@ func (m *ClientManager) GetClient(cname string) (*Client, error) {
 			return nil, err
 		}
 
-		audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{MimeType: "audio/opus"}, "audio", "audio")
+		audioTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "audio/opus"}, "audio", "audio")
 		if err != nil {
 			return nil, err
 		}
 		if _, err = peerConnection.AddTrack(videoTrack); err != nil {
 			return nil, err
 		}
-		
+
 		m.clients[cname] = &Client{
 			sdk:         sdk,
 			lastUpdated: time.Now(),
 			VideoTrack:  videoTrack,
 			AudioTrack:  audioTrack,
 		}
-		
+
 		sdk.Join(cname, ion.NewJoinConfig().SetNoSubscribe())
+
+		log.Printf("JOINED")
 	}
 	return m.clients[cname], nil
 }

@@ -111,18 +111,24 @@ GstElement *gstreamer_start(char *pipelineStr, void *data)
     gst_object_unref(bus);
 
     GstElement *appsink = gst_bin_get_by_name(GST_BIN(pipeline), "bufferappsink");
-    g_object_set(appsink, "emit-signals", TRUE, NULL);
-    g_signal_connect(appsink, "new-sample", G_CALLBACK(gstreamer_pull_buffer), data);
-    gst_object_unref(appsink);
+    if (appsink != NULL) {
+        g_object_set(appsink, "emit-signals", TRUE, NULL);
+        g_signal_connect(appsink, "new-sample", G_CALLBACK(gstreamer_pull_buffer), data);
+        gst_object_unref(appsink);
+    }
 
     GstElement *rtcpappsink = gst_bin_get_by_name(GST_BIN(pipeline), "rtcpappsink");
-    g_object_set(rtcpappsink, "emit-signals", TRUE, NULL);
-    g_signal_connect(rtcpappsink, "new-sample", G_CALLBACK(gstreamer_pull_rtcp), data);
-    gst_object_unref(rtcpappsink);
+    if (rtcpappsink != NULL) {
+        g_object_set(rtcpappsink, "emit-signals", TRUE, NULL);
+        g_signal_connect(rtcpappsink, "new-sample", G_CALLBACK(gstreamer_pull_rtcp), data);
+        gst_object_unref(rtcpappsink);
+    }
 
     GstElement *rtpjitterbuffer = gst_bin_get_by_name(GST_BIN(pipeline), "rtpjitterbuffer");
-    g_signal_connect(rtpjitterbuffer, "request-pt-map", G_CALLBACK(gstreamer_rtpjitterbuffer_request_pt_map), data);
-    gst_object_unref(rtpjitterbuffer);
+    if (rtpjitterbuffer != NULL) {
+        g_signal_connect(rtpjitterbuffer, "request-pt-map", G_CALLBACK(gstreamer_rtpjitterbuffer_request_pt_map), data);
+        gst_object_unref(rtpjitterbuffer);
+    }
 
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
 
