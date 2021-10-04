@@ -13,7 +13,6 @@ import (
 type Client struct {
 	sync.Mutex
 
-	sdk         *ion.Client
 	lastUpdated time.Time
 
 	VideoTrack *webrtc.TrackLocalStaticRTP
@@ -75,10 +74,6 @@ func (m *ClientManager) GetClient(cname string) (*Client, error) {
 			log.Printf("Connection state changed: %s", state)
 		})
 
-		if err = m.engine.AddClient(sdk); err != nil {
-			return nil, err
-		}
-
 		videoTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: "video/vp8"}, "video", "video")
 		if err != nil {
 			return nil, err
@@ -91,20 +86,19 @@ func (m *ClientManager) GetClient(cname string) (*Client, error) {
 		if err != nil {
 			return nil, err
 		}
-		if _, err = peerConnection.AddTrack(videoTrack); err != nil {
+		if _, err = peerConnection.AddTrack(audioTrack); err != nil {
+			return nil, err
+		}
+
+		if err := sdk.Join(cname, ion.NewJoinConfig().SetNoSubscribe()); err != nil {
 			return nil, err
 		}
 
 		m.clients[cname] = &Client{
-			sdk:         sdk,
 			lastUpdated: time.Now(),
 			VideoTrack:  videoTrack,
 			AudioTrack:  audioTrack,
 		}
-
-		sdk.Join(cname, ion.NewJoinConfig().SetNoSubscribe())
-
-		log.Printf("JOINED")
 	}
 	return m.clients[cname], nil
 }
