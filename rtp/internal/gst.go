@@ -6,6 +6,7 @@ package internal
 */
 import "C"
 import (
+	"context"
 	"log"
 	"unsafe"
 
@@ -31,7 +32,7 @@ const (
 	PipelineTypeAudio = PipelineType(1)
 )
 
-func (p *Pipeline) Start(pipelineType PipelineType) error {
+func (p *Pipeline) Start(ctx context.Context, pipelineType PipelineType) error {
 	switch pipelineType {
 	case PipelineTypeVideo:
 		pipelineStr := C.CString(`
@@ -40,8 +41,8 @@ func (p *Pipeline) Start(pipelineType PipelineType) error {
 					rtpsession.recv_rtp_sink
 				rtpsession.recv_rtp_src !
 					rtprtxreceive payload-type-map="application/x-rtp-pt-map,120=(uint)121" !
-					rtpjitterbuffer do-lost=true do-retransmission=true name=rtpjitterbuffer ! appsink name=bufferappsink
-				rtpsession.send_rtcp_src ! appsink name=rtcpappsink sync=false async=false`)
+					rtpjitterbuffer do-lost=true do-retransmission=true name=rtpjitterbuffer ! appsink name=bufferappsink sync=false
+				rtpsession.send_rtcp_src ! appsink name=rtcpappsink sync=false`)
 		defer C.free(unsafe.Pointer(pipelineStr))
 
 		p.gstElement = C.gstreamer_start(pipelineStr, pointer.Save(p))
@@ -52,13 +53,18 @@ func (p *Pipeline) Start(pipelineType PipelineType) error {
 					rtpsession.recv_rtp_sink
 				rtpsession.recv_rtp_src !
 					rtprtxreceive payload-type-map="application/x-rtp-pt-map,96=(uint)97" !
-					rtpjitterbuffer do-lost=true do-retransmission=true name=rtpjitterbuffer ! appsink name=bufferappsink
-				rtpsession.send_rtcp_src ! appsink name=rtcpappsink sync=false async=false`)
+					rtpjitterbuffer do-lost=true do-retransmission=true name=rtpjitterbuffer ! appsink name=bufferappsink sync=false
+				rtpsession.send_rtcp_src ! appsink name=rtcpappsink sync=false`)
 		defer C.free(unsafe.Pointer(pipelineStr))
 
 		p.gstElement = C.gstreamer_start(pipelineStr, pointer.Save(p))
-
 	}
+	
+	go func() {
+		<-ctx.Done()
+		C.gstreamer_stop(p.gstElement)
+	}()
+
 	return nil
 }
 
@@ -71,23 +77,13 @@ func (p *Pipeline) WriteRTP(buffer []byte) error {
 	return nil
 }
 
-// WriteRTCP sends the given RTCP packet to the pipeline for processing.
-func (p *Pipeline) WriteRTCP(buffer []byte) error {
-	b := C.CBytes(buffer)
-	defer C.free(b)
-	C.gstreamer_push_rtcp(p.gstElement, b, C.int(len(buffer)))
-
-	return nil
-}
-
 // Close terminates the pipeline.
 func (p *Pipeline) Close() {
 	C.gstreamer_stop(p.gstElement)
 }
 
 //export goHandleAppSinkBuffer
-func goHandleAppSinkBuffer(buffer unsafe.Pointer, bufferLen C.int, duration C.int, data unsafe.Pointer) {
-	defer C.free(buffer)
+func goHandleAppSinkBuffer(buffer unsafe.Pointer, bufferLen C.int, data unsafe.Pointer) {
 	pipeline := pointer.Restore(data).(*Pipeline)
 	if pipeline.RTPSink != nil {
 		if _, err := pipeline.RTPSink(C.GoBytes(buffer, bufferLen)); err != nil {
@@ -99,7 +95,7 @@ func goHandleAppSinkBuffer(buffer unsafe.Pointer, bufferLen C.int, duration C.in
 }
 
 //export goHandleRtcpAppSinkBuffer
-func goHandleRtcpAppSinkBuffer(buffer unsafe.Pointer, bufferLen C.int, duration C.int, data unsafe.Pointer) {
+func goHandleRtcpAppSinkBuffer(buffer unsafe.Pointer, bufferLen C.int, data unsafe.Pointer) {
 	pipeline := pointer.Restore(data).(*Pipeline)
 	if pipeline.RTCPSink != nil {
 		if _, err := pipeline.RTCPSink(C.GoBytes(buffer, bufferLen)); err != nil {

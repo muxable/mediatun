@@ -6,6 +6,8 @@ items:
       annotations:
         kompose.cmd: kompose convert -o k8s.yml
         kompose.image-pull-policy: Always
+        kompose.service.expose: rtmp.mtun.io
+        kompose.service.type: loadbalancer
         kompose.version: 1.22.0 (955b78124)
       creationTimestamp: null
       labels:
@@ -18,6 +20,7 @@ items:
           targetPort: 1935
       selector:
         io.kompose.service: rtmp
+      type: LoadBalancer
     status:
       loadBalancer: {}
   - apiVersion: v1
@@ -26,7 +29,8 @@ items:
       annotations:
         kompose.cmd: kompose convert -o k8s.yml
         kompose.image-pull-policy: Always
-        kompose.service.expose: "true"
+        kompose.service.expose: rtp.mtun.io
+        kompose.service.type: loadbalancer
         kompose.version: 1.22.0 (955b78124)
       creationTimestamp: null
       labels:
@@ -44,6 +48,7 @@ items:
           targetPort: 6001
       selector:
         io.kompose.service: rtp
+      type: LoadBalancer
     status:
       loadBalancer: {}
   - apiVersion: v1
@@ -864,15 +869,15 @@ items:
           port: 5200
           protocol: UDP
           targetPort: 5200
-        - name: "80"
-          port: 80
-          targetPort: 80
         - name: "7000"
           port: 7000
           targetPort: 7000
         - name: "50051"
           port: 50051
           targetPort: 50051
+        - name: "80"
+          port: 80
+          targetPort: 80
       selector:
         io.kompose.service: sfu
     status:
@@ -898,12 +903,6 @@ items:
         - name: "443"
           port: 443
           targetPort: 443
-        - name: "1935"
-          port: 1935
-          targetPort: 1935
-        - name: "50051"
-          port: 50051
-          targetPort: 50051
       selector:
         io.kompose.service: web
       type: LoadBalancer
@@ -915,6 +914,8 @@ items:
       annotations:
         kompose.cmd: kompose convert -o k8s.yml
         kompose.image-pull-policy: Always
+        kompose.service.expose: rtmp.mtun.io
+        kompose.service.type: loadbalancer
         kompose.version: 1.22.0 (955b78124)
       creationTimestamp: null
       labels:
@@ -931,6 +932,8 @@ items:
           annotations:
             kompose.cmd: kompose convert -o k8s.yml
             kompose.image-pull-policy: Always
+            kompose.service.expose: rtmp.mtun.io
+            kompose.service.type: loadbalancer
             kompose.version: 1.22.0 (955b78124)
           creationTimestamp: null
           labels:
@@ -945,13 +948,37 @@ items:
               resources: {}
           restartPolicy: Always
     status: {}
+  - apiVersion: extensions/v1beta1
+    kind: Ingress
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -o k8s.yml
+        kompose.image-pull-policy: Always
+        kompose.service.expose: rtmp.mtun.io
+        kompose.service.type: loadbalancer
+        kompose.version: 1.22.0 (955b78124)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: rtmp
+      name: rtmp
+    spec:
+      rules:
+        - host: rtmp.mtun.io
+          http:
+            paths:
+              - backend:
+                  serviceName: rtmp
+                  servicePort: 1935
+    status:
+      loadBalancer: {}
   - apiVersion: apps/v1
     kind: Deployment
     metadata:
       annotations:
         kompose.cmd: kompose convert -o k8s.yml
         kompose.image-pull-policy: Always
-        kompose.service.expose: "true"
+        kompose.service.expose: rtp.mtun.io
+        kompose.service.type: loadbalancer
         kompose.version: 1.22.0 (955b78124)
       creationTimestamp: null
       labels:
@@ -968,7 +995,8 @@ items:
           annotations:
             kompose.cmd: kompose convert -o k8s.yml
             kompose.image-pull-policy: Always
-            kompose.service.expose: "true"
+            kompose.service.expose: rtp.mtun.io
+            kompose.service.type: loadbalancer
             kompose.version: 1.22.0 (955b78124)
           creationTimestamp: null
           labels:
@@ -992,7 +1020,8 @@ items:
       annotations:
         kompose.cmd: kompose convert -o k8s.yml
         kompose.image-pull-policy: Always
-        kompose.service.expose: "true"
+        kompose.service.expose: rtp.mtun.io
+        kompose.service.type: loadbalancer
         kompose.version: 1.22.0 (955b78124)
       creationTimestamp: null
       labels:
@@ -1000,7 +1029,8 @@ items:
       name: rtp
     spec:
       rules:
-        - http:
+        - host: rtp.mtun.io
+          http:
             paths:
               - backend:
                   serviceName: rtp
@@ -1443,9 +1473,9 @@ items:
                   protocol: UDP
                 - containerPort: 5200
                   protocol: UDP
-                - containerPort: 80
                 - containerPort: 7000
                 - containerPort: 50051
+                - containerPort: 80
               resources: {}
           restartPolicy: Always
     status: {}
@@ -1523,8 +1553,6 @@ items:
               ports:
                 - containerPort: 80
                 - containerPort: 443
-                - containerPort: 1935
-                - containerPort: 50051
               resources: {}
               volumeMounts:
                 - mountPath: /data

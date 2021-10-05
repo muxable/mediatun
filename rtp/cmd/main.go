@@ -66,6 +66,8 @@ func (s *Server) Listen(addr string, pipelineType internal.PipelineType) {
 							for _, item := range chunk.Items {
 								if item.Type == rtcp.SDESCNAME && !s.peerManager.IsConfigured(internal.SSRC(ssrc)) {
 									cname := item.Text
+									ctx, cancel := context.WithCancel(context.Background())
+
 									pipeline := &internal.Pipeline{
 										RTPSink: func(buffer []byte) (int, error) {
 											s.OnRTP(cname, buffer)
@@ -90,9 +92,9 @@ func (s *Server) Listen(addr string, pipelineType internal.PipelineType) {
 										},
 									}
 
-									pipeline.Start(pipelineType)
+									pipeline.Start(ctx, pipelineType)
 									
-									s.peerManager.Configure(internal.SSRC(ssrc), internal.CName(cname), pipeline)
+									s.peerManager.Configure(internal.SSRC(ssrc), internal.CName(cname), pipeline, cancel)
 
 									log.Printf("configured peer %s for ssrc %d", cname, ssrc)
 								}
@@ -151,7 +153,7 @@ func main() {
 				return
 			}
 			if _, err := client.VideoTrack.Write(buf); err != nil {
-				log.Printf("failed to write audio buffer to track: %v", err)
+				log.Printf("failed to write video buffer to track: %v", err)
 			}
 		},
 	}

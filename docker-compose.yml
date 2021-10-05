@@ -33,6 +33,8 @@ services:
     depends_on:
       - sfu
     labels:
+      kompose.service.type: loadbalancer
+      kompose.service.expose: rtmp.mtun.io
       kompose.image-pull-policy: Always
       
   # srt:
@@ -57,7 +59,8 @@ services:
       - 6000:6000/udp
       - 6001:6001/udp
     labels:
-      kompose.service.expose: "true"
+      kompose.service.type: loadbalancer
+      kompose.service.expose: rtp.mtun.io
       kompose.image-pull-policy: Always
     depends_on:
       - sfu

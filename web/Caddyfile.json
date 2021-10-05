@@ -94,50 +94,6 @@
           { "subjects": ["localhost"], "issuers": [{ "module": "internal" }] }
         ]
       }
-    },
-    "layer4": {
-      "servers": {
-        "rtmp": {
-          "listen": ["0.0.0.0:1935"],
-          "routes": [
-            {
-              "handle": [
-                { "handler": "proxy", "upstreams": [{ "dial": ["rtmp:1935"] }] }
-              ]
-            }
-          ]
-        },
-        "grpc": {
-          "listen": ["0.0.0.0:50051"],
-          "routes": [
-            {
-              "handle": [
-                { "handler": "proxy", "upstreams": [{ "dial": ["sfu:50051"] }] }
-              ]
-            }
-          ]
-        },
-        "rtp:6000": {
-          "listen": ["0.0.0.0:6000"],
-          "routes": [
-            {
-              "handle": [
-                { "handler": "proxy", "upstreams": [{ "dial": ["rtp:6000"] }] }
-              ]
-            }
-          ]
-        },
-        "rtp:6001": {
-          "listen": ["0.0.0.0:6001"],
-          "routes": [
-            {
-              "handle": [
-                { "handler": "proxy", "upstreams": [{ "dial": ["rtp:6001"] }] }
-              ]
-            }
-          ]
-        }
-      }
     }
   }
 }

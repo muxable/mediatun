@@ -26,6 +26,8 @@ type Source struct {
 	bitrate   int
 	cname     CName
 	pipeline *Pipeline
+
+	cancel context.CancelFunc
 }
 
 func (s *Source) isConfigured() bool {
@@ -62,7 +64,7 @@ func NewPeerManager(ctx context.Context, timeout time.Duration, statsInterval ti
 							if source, ok := m.sources[SSRC(ssrc)]; ok {
 								source.peerCount--
 								if source.peerCount == 0 {
-									source.pipeline.Close()
+									source.cancel()
 									delete(m.sources, SSRC(ssrc))
 								}
 							} else {
@@ -88,10 +90,12 @@ func NewPeerManager(ctx context.Context, timeout time.Duration, statsInterval ti
 			case <-time.After(5 * time.Second):
 				var builder strings.Builder
 				builder.WriteString(fmt.Sprintf("---- %s peers ----\n", debug))
+				m.Lock()
 				for ssrc, source := range m.sources {
 					builder.WriteString(fmt.Sprintf("%s -> %d\t%d peers, %d bps\n", source.cname, ssrc, source.peerCount, source.bitrate*8/int(statsInterval/time.Second)))
 					source.bitrate = 0
 				}
+				m.Unlock()
 				log.Print(builder.String())
 			}
 		}
@@ -175,17 +179,19 @@ func (m *PeerManager) IsConfigured(ssrc SSRC) bool {
 }
 
 // Configure sets the cname and pipeline for a given ssrc.
-func (m *PeerManager) Configure(ssrc SSRC, cname CName, pipeline *Pipeline) {
+func (m *PeerManager) Configure(ssrc SSRC, cname CName, pipeline *Pipeline, cancel context.CancelFunc) {
 	m.Lock()
 	defer m.Unlock()
 
 	if source, ok := m.sources[ssrc]; ok {
 		source.cname = cname
 		source.pipeline = pipeline
+		source.cancel = cancel
 	} else {
 		m.sources[ssrc] = &Source{
 			cname:   cname,
 			pipeline: pipeline,
+			cancel:  cancel,
 		}
 	}
 }

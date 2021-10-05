@@ -48,19 +48,35 @@ static gboolean gstreamer_bus_call(GstBus *bus, GstMessage *msg, gpointer data)
 
 static GstFlowReturn gstreamer_pull_buffer(GstElement *object, gpointer user_data)
 {
-    GstSample *sample = NULL;
-    GstBuffer *buffer = NULL;
-    gpointer copy = NULL;
-    gsize copy_size = 0;
-
-    g_signal_emit_by_name(object, "pull-sample", &sample);
+    GstSample *sample = gst_app_sink_pull_sample(GST_APP_SINK(object));
     if (sample)
     {
-        buffer = gst_sample_get_buffer(sample);
+        GstBuffer *buffer = gst_sample_get_buffer(sample);
         if (buffer)
         {
+            gpointer copy = NULL;
+            gsize copy_size = 0;
             gst_buffer_extract_dup(buffer, 0, gst_buffer_get_size(buffer), &copy, &copy_size);
-            goHandleAppSinkBuffer(copy, copy_size, GST_BUFFER_DURATION(buffer), (void *)user_data);
+            goHandleAppSinkBuffer(copy, copy_size, (void *)user_data);
+        }
+        gst_sample_unref(sample);
+    }
+
+    return GST_FLOW_OK;
+}
+
+static GstFlowReturn gstreamer_pull_rtcp(GstElement *object, gpointer user_data)
+{
+    GstSample *sample = gst_app_sink_pull_sample(GST_APP_SINK(object));
+    if (sample)
+    {
+        GstBuffer *buffer = gst_sample_get_buffer(sample);
+        if (buffer)
+        {
+            gpointer copy = NULL;
+            gsize copy_size = 0;
+            gst_buffer_extract_dup(buffer, 0, gst_buffer_get_size(buffer), &copy, &copy_size);
+            goHandleRtcpAppSinkBuffer(copy, copy_size, (void *)user_data);
         }
         gst_sample_unref(sample);
     }
@@ -82,6 +98,14 @@ GstElement *gstreamer_start(char *pipelineStr, void *data)
         g_object_set(appsink, "emit-signals", TRUE, NULL);
         g_signal_connect(appsink, "new-sample", G_CALLBACK(gstreamer_pull_buffer), data);
         gst_object_unref(appsink);
+    }
+
+    GstElement *rtcpappsink = gst_bin_get_by_name(GST_BIN(pipeline), "rtcpappsink");
+    if (rtcpappsink != NULL)
+    {
+        g_object_set(rtcpappsink, "emit-signals", TRUE, NULL);
+        g_signal_connect(rtcpappsink, "new-sample", G_CALLBACK(gstreamer_pull_rtcp), data);
+        gst_object_unref(rtcpappsink);
     }
 
     gst_element_set_state(pipeline, GST_STATE_PLAYING);
