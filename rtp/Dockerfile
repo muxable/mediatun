@@ -142,4 +142,4 @@ RUN ldconfig
 ENV NVIDIA_DRIVER_CAPABILITIES all
 ENV GST_DEBUG 3
 
-CMD ["/main", "0.0.0.0:6000", "0.0.0.0:6001", "sfu:50051"]
+CMD ["/main", "0.0.0.0:6000", "sfu:50051"]

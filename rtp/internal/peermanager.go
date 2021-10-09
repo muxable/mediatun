@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"strings"
 	"sync"
 	"time"
+
+	"github.com/pion/rtcp"
+	"github.com/pion/rtp"
 )
 
 type SSRC uint32
@@ -24,14 +26,7 @@ type Peer struct {
 type Source struct {
 	peerCount uint32
 	bitrate   int
-	cname     CName
-	pipeline *Pipeline
-
-	cancel context.CancelFunc
-}
-
-func (s *Source) isConfigured() bool {
-	return s.pipeline != nil
+	cname     *CName
 }
 
 type PeerManager struct {
@@ -42,10 +37,10 @@ type PeerManager struct {
 	sources map[SSRC]*Source
 }
 
-func NewPeerManager(ctx context.Context, timeout time.Duration, statsInterval time.Duration, debug string) *PeerManager {
+func NewPeerManager(ctx context.Context, timeout time.Duration) *PeerManager {
 	m := &PeerManager{
-		peers:     make(map[Address]*Peer),
-		sources:   make(map[SSRC]*Source),
+		peers:   make(map[Address]*Peer),
+		sources: make(map[SSRC]*Source),
 	}
 	// start a cleanup routine
 	go func() {
@@ -64,7 +59,6 @@ func NewPeerManager(ctx context.Context, timeout time.Duration, statsInterval ti
 							if source, ok := m.sources[SSRC(ssrc)]; ok {
 								source.peerCount--
 								if source.peerCount == 0 {
-									source.cancel()
 									delete(m.sources, SSRC(ssrc))
 								}
 							} else {
@@ -82,31 +76,44 @@ func NewPeerManager(ctx context.Context, timeout time.Duration, statsInterval ti
 			}
 		}
 	}()
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-time.After(5 * time.Second):
-				var builder strings.Builder
-				builder.WriteString(fmt.Sprintf("---- %s peers ----\n", debug))
-				m.Lock()
-				for ssrc, source := range m.sources {
-					builder.WriteString(fmt.Sprintf("%s -> %d\t%d peers, %d bps\n", source.cname, ssrc, source.peerCount, source.bitrate*8/int(statsInterval/time.Second)))
-					source.bitrate = 0
-				}
-				m.Unlock()
-				log.Print(builder.String())
-			}
-		}
-	}()
 	return m
 }
 
-// MarkReceived updates a peer's ssrcs map with the given ssrc.
-func (m *PeerManager) MarkReceived(sender net.Addr, ssrc SSRC, bits int) {
+// MarkRTCPReceived processes an incoming rtcp packet.
+func (m *PeerManager) MarkRTCPReceived(cp rtcp.CompoundPacket) {
 	m.Lock()
 	defer m.Unlock()
+
+	for _, pkt := range cp {
+		for _, ssrc := range pkt.DestinationSSRC() {
+			// check if this packet has a cname associated with it.
+			if sdes, ok := pkt.(*rtcp.SourceDescription); ok {
+				for _, chunk := range sdes.Chunks {
+					for _, item := range chunk.Items {
+						if item.Type == rtcp.SDESCNAME {
+							cname := CName(item.Text)
+							if source, ok := m.sources[SSRC(ssrc)]; ok {
+								source.cname = &cname
+							} else {
+								m.sources[SSRC(ssrc)] = &Source{
+									cname: &cname,
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// MarkRTPReceived updates a peer's ssrcs map with the given ssrc.
+func (m *PeerManager) MarkRTPReceived(sender net.Addr, p *rtp.Packet) {
+	m.Lock()
+	defer m.Unlock()
+
+	ssrc := SSRC(p.SSRC)
+	bits := p.MarshalSize()
 
 	// create the source if it doesn't exist yet, or update the bitrate.
 	if source, ok := m.sources[ssrc]; ok {
@@ -153,45 +160,11 @@ func (m *PeerManager) GetCNAME(ssrc SSRC) (CName, error) {
 	defer m.Unlock()
 
 	if source, ok := m.sources[ssrc]; ok {
-		return source.cname, nil
+		// return an error if the cname is empty.
+		if source.cname == nil {
+			return "", fmt.Errorf("cname not set for ssrc %d", ssrc)
+		}
+		return *source.cname, nil
 	}
 	return "", fmt.Errorf("no cname for ssrc %d", ssrc)
-}
-
-// GetPipeline gets the pipeline for a given cname.
-func (m *PeerManager) GetPipeline(ssrc SSRC) (*Pipeline, error) {
-	m.Lock()
-	defer m.Unlock()
-
-	if source, ok := m.sources[ssrc]; ok {
-		return source.pipeline, nil
-	}
-	return nil, fmt.Errorf("no source for ssrc %d", ssrc)
-}
-
-// IsConfigured checks if the given ssrc is configured.
-func (m *PeerManager) IsConfigured(ssrc SSRC) bool {
-	m.Lock()
-	defer m.Unlock()
-
-	source, ok := m.sources[ssrc]
-	return ok && source.isConfigured()
-}
-
-// Configure sets the cname and pipeline for a given ssrc.
-func (m *PeerManager) Configure(ssrc SSRC, cname CName, pipeline *Pipeline, cancel context.CancelFunc) {
-	m.Lock()
-	defer m.Unlock()
-
-	if source, ok := m.sources[ssrc]; ok {
-		source.cname = cname
-		source.pipeline = pipeline
-		source.cancel = cancel
-	} else {
-		m.sources[ssrc] = &Source{
-			cname:   cname,
-			pipeline: pipeline,
-			cancel:  cancel,
-		}
-	}
 }

@@ -8,9 +8,11 @@ import "C"
 import (
 	"context"
 	"log"
+	"time"
 	"unsafe"
 
 	"github.com/mattn/go-pointer"
+	"github.com/pion/webrtc/v3/pkg/media"
 )
 
 func init() {
@@ -20,46 +22,21 @@ func init() {
 
 type Pipeline struct {
 	gstElement *C.GstElement
-	
-	RTCPSink func([]byte) (int, error)
-	RTPSink  func([]byte) (int, error)
+
+	RTCPSink       func([]byte) (int, error)
+	VP8SampleSink  func(SSRC, media.Sample) (int, error)
+	OpusSampleSink func(SSRC, media.Sample) (int, error)
 }
 
-type PipelineType int
+func (p *Pipeline) Start(ctx context.Context) error {
+	pipelineStr := C.CString(`
+		rtpbin name=rtpbin rtp-profile=avpf sdes="application/x-rtp-source-sdes,cname=(string)\"mtun.io\""
+			appsrc name=rtpappsrc is-live=true format=time caps="application/x-rtp" ! rtpbin.recv_rtp_sink_0
+			rtpbin.send_rtcp_src_0 ! appsink name=rtcpappsink`)
+	defer C.free(unsafe.Pointer(pipelineStr))
 
-const (
-	PipelineTypeVideo = PipelineType(0)
-	PipelineTypeAudio = PipelineType(1)
-)
+	p.gstElement = C.gstreamer_start(pipelineStr, pointer.Save(p))
 
-func (p *Pipeline) Start(ctx context.Context, pipelineType PipelineType) error {
-	switch pipelineType {
-	case PipelineTypeVideo:
-		pipelineStr := C.CString(`
-			rtpsession name=rtpsession rtp-profile=avpf sdes="application/x-rtp-source-sdes,cname=(string)\"mtun.io\""
-				appsrc name=rtpappsrc is-live=true format=time caps="application/x-rtp,media=(string)video,clock-rate=(int)90000,encoding-name=(string)VP8-DRAFT-IETF-01,payload=(int)120,extmap-5=http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01" !
-					rtpsession.recv_rtp_sink
-				rtpsession.recv_rtp_src !
-					rtprtxreceive payload-type-map="application/x-rtp-pt-map,120=(uint)121" !
-					rtpjitterbuffer do-lost=true do-retransmission=true name=rtpjitterbuffer ! appsink name=bufferappsink sync=false
-				rtpsession.send_rtcp_src ! appsink name=rtcpappsink sync=false`)
-		defer C.free(unsafe.Pointer(pipelineStr))
-
-		p.gstElement = C.gstreamer_start(pipelineStr, pointer.Save(p))
-	case PipelineTypeAudio:
-		pipelineStr := C.CString(`
-			rtpsession name=rtpsession rtp-profile=avpf sdes="application/x-rtp-source-sdes,cname=(string)\"mtun.io\""
-				appsrc name=rtpappsrc is-live=true format=time caps="application/x-rtp,media=(string)audio,clock-rate=(int)48000,encoding-name=(string)OPUS,payload=(int)96" !
-					rtpsession.recv_rtp_sink
-				rtpsession.recv_rtp_src !
-					rtprtxreceive payload-type-map="application/x-rtp-pt-map,96=(uint)97" !
-					rtpjitterbuffer do-lost=true do-retransmission=true name=rtpjitterbuffer ! appsink name=bufferappsink sync=false
-				rtpsession.send_rtcp_src ! appsink name=rtcpappsink sync=false`)
-		defer C.free(unsafe.Pointer(pipelineStr))
-
-		p.gstElement = C.gstreamer_start(pipelineStr, pointer.Save(p))
-	}
-	
 	go func() {
 		<-ctx.Done()
 		C.gstreamer_stop(p.gstElement)
@@ -69,39 +46,37 @@ func (p *Pipeline) Start(ctx context.Context, pipelineType PipelineType) error {
 }
 
 // WriteRTP sends the given RTP packet to the pipeline for processing.
-func (p *Pipeline) WriteRTP(buffer []byte) error {
-	b := C.CBytes(buffer)
+func (p *Pipeline) WriteRTP(buf []byte) error {
+	b := C.CBytes(buf)
 	defer C.free(b)
-	C.gstreamer_push_rtp(p.gstElement, b, C.int(len(buffer)))
+
+	codec := C.CString("rtpappsrc")
+	defer C.free(unsafe.Pointer(codec))
+	C.gstreamer_push_rtp(p.gstElement, codec, b, C.int(len(buf)))
 
 	return nil
 }
 
-// Close terminates the pipeline.
-func (p *Pipeline) Close() {
-	C.gstreamer_stop(p.gstElement)
+var vp8Duration = 33333333
+var opusDuration = 20000000
+
+//export goHandleVP8Buffer
+func goHandleVP8Buffer(buffer unsafe.Pointer, bufferLen C.int, timestamp C.ulong, ssrc C.ulong, data unsafe.Pointer) {
+	if _, err := pointer.Restore(data).(*Pipeline).VP8SampleSink(SSRC(ssrc), media.Sample{Data: C.GoBytes(buffer, bufferLen), Duration: time.Duration(vp8Duration)}); err != nil {
+		log.Printf("failed to write rtp packet: %v", err)
+	}
 }
 
-//export goHandleAppSinkBuffer
-func goHandleAppSinkBuffer(buffer unsafe.Pointer, bufferLen C.int, data unsafe.Pointer) {
-	pipeline := pointer.Restore(data).(*Pipeline)
-	if pipeline.RTPSink != nil {
-		if _, err := pipeline.RTPSink(C.GoBytes(buffer, bufferLen)); err != nil {
-			log.Printf("failed to write rtp packet: %v", err)
-		}
-	} else {
-		panic("missing buffer sink")
+//export goHandleOpusBuffer
+func goHandleOpusBuffer(buffer unsafe.Pointer, bufferLen C.int, timestamp C.ulong, ssrc C.ulong, data unsafe.Pointer) {
+	if _, err := pointer.Restore(data).(*Pipeline).OpusSampleSink(SSRC(ssrc), media.Sample{Data: C.GoBytes(buffer, bufferLen), Duration: time.Duration(opusDuration)}); err != nil {
+		log.Printf("failed to write rtp packet: %v", err)
 	}
 }
 
 //export goHandleRtcpAppSinkBuffer
 func goHandleRtcpAppSinkBuffer(buffer unsafe.Pointer, bufferLen C.int, data unsafe.Pointer) {
-	pipeline := pointer.Restore(data).(*Pipeline)
-	if pipeline.RTCPSink != nil {
-		if _, err := pipeline.RTCPSink(C.GoBytes(buffer, bufferLen)); err != nil {
-			log.Printf("failed to write rtcp packet: %v", err)
-		}
-	} else {
-		panic("missing buffer sink")
+	if _, err := pointer.Restore(data).(*Pipeline).RTCPSink(C.GoBytes(buffer, bufferLen)); err != nil {
+		log.Printf("failed to write rtcp packet: %v", err)
 	}
 }

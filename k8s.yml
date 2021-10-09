@@ -57,7 +57,8 @@ items:
       annotations:
         kompose.cmd: kompose convert -o k8s.yml
         kompose.image-pull-policy: Always
-        kompose.service.expose: "true"
+        kompose.service.expose: sfu.mtun.io
+        kompose.service.type: loadbalancer
         kompose.version: 1.22.0 (955b78124)
       creationTimestamp: null
       labels:
@@ -880,6 +881,7 @@ items:
           targetPort: 80
       selector:
         io.kompose.service: sfu
+      type: LoadBalancer
     status:
       loadBalancer: {}
   - apiVersion: v1
@@ -1043,7 +1045,8 @@ items:
       annotations:
         kompose.cmd: kompose convert -o k8s.yml
         kompose.image-pull-policy: Always
-        kompose.service.expose: "true"
+        kompose.service.expose: sfu.mtun.io
+        kompose.service.type: loadbalancer
         kompose.version: 1.22.0 (955b78124)
       creationTimestamp: null
       labels:
@@ -1060,7 +1063,8 @@ items:
           annotations:
             kompose.cmd: kompose convert -o k8s.yml
             kompose.image-pull-policy: Always
-            kompose.service.expose: "true"
+            kompose.service.expose: sfu.mtun.io
+            kompose.service.type: loadbalancer
             kompose.version: 1.22.0 (955b78124)
           creationTimestamp: null
           labels:
@@ -1485,7 +1489,8 @@ items:
       annotations:
         kompose.cmd: kompose convert -o k8s.yml
         kompose.image-pull-policy: Always
-        kompose.service.expose: "true"
+        kompose.service.expose: sfu.mtun.io
+        kompose.service.type: loadbalancer
         kompose.version: 1.22.0 (955b78124)
       creationTimestamp: null
       labels:
@@ -1493,7 +1498,8 @@ items:
       name: sfu
     spec:
       rules:
-        - http:
+        - host: sfu.mtun.io
+          http:
             paths:
               - backend:
                   serviceName: sfu

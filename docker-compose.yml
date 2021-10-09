@@ -76,7 +76,8 @@ services:
     expose:
       - "80"
     labels:
-      kompose.service.expose: "true"
+      kompose.service.type: loadbalancer
+      kompose.service.expose: sfu.mtun.io
       kompose.image-pull-policy: Always
     # healthcheck:
     #   test: ["CMD", "/bin/grpc_health_probe", "-addr=:50051"]
