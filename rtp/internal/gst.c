@@ -200,6 +200,39 @@ static GstCaps *gstreamer_request_pt_map(GstElement *rtpbin, guint session, guin
     }
 }
 
+static GstElement *gstreamer_request_aux_receiver(GstElement *rtpbin, guint sessid, gpointer user_data)
+{
+    GstElement *rtx, *bin;
+    GstPad *pad;
+    gchar *name;
+    GstStructure *pt_map;
+
+    bin = gst_bin_new(NULL);
+    rtx = gst_element_factory_make("rtprtxreceive", NULL);
+    pt_map = gst_structure_new(
+        "application/x-rtp-pt-map",
+        "96", G_TYPE_UINT, 97,
+        "111", G_TYPE_UINT, 112,
+        NULL);
+    g_object_set(rtx, "payload-type-map", pt_map, NULL);
+    gst_structure_free(pt_map);
+    gst_bin_add(GST_BIN(bin), rtx);
+
+    pad = gst_element_get_static_pad(rtx, "src");
+    name = g_strdup_printf("src_%u", sessid);
+    gst_element_add_pad(bin, gst_ghost_pad_new(name, pad));
+    g_free(name);
+    gst_object_unref(pad);
+
+    pad = gst_element_get_static_pad(rtx, "sink");
+    name = g_strdup_printf("sink_%u", sessid);
+    gst_element_add_pad(bin, gst_ghost_pad_new(name, pad));
+    g_free(name);
+    gst_object_unref(pad);
+
+    return bin;
+}
+
 GstElement *gstreamer_start(char *pipelineStr, void *data)
 {
     GstElement *pipeline = gst_parse_launch(pipelineStr, NULL);
@@ -223,6 +256,7 @@ GstElement *gstreamer_start(char *pipelineStr, void *data)
         session_data->userdata = data;
         session_data->pipeline = pipeline;
 
+        g_signal_connect(rtpbin, "request-aux-receiver", G_CALLBACK(gstreamer_request_aux_receiver), session_data);
         g_signal_connect(rtpbin, "pad-added", G_CALLBACK(gstreamer_pad_added), session_data);
         g_signal_connect(rtpbin, "request-pt-map", G_CALLBACK(gstreamer_request_pt_map), session_data);
         gst_object_unref(rtpbin);

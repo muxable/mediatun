@@ -39,7 +39,7 @@ func main() {
 		},
 	})
 
-	clientManager := internal.NewClientManager(context.Background(), 5*time.Second, engine, internal.Address(os.Args[2]))
+	clientManager := internal.NewClientManager(context.Background(), 86400*time.Second, engine, internal.Address(os.Args[2]))
 	peerManager := internal.NewPeerManager(context.Background(), 5*time.Second)
 
 	internal.StatsManager{

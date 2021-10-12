@@ -46,6 +46,7 @@ func NewClientManager(ctx context.Context, timeout time.Duration, engine *ion.En
 				// remove all ssrcs that have not been updated in the last timeout.
 				for cname, client := range m.clients {
 					if time.Since(client.lastUpdated) > timeout {
+						client.sdk.Close()
 						delete(m.clients, cname)
 					}
 				}

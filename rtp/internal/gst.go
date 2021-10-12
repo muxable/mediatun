@@ -30,7 +30,7 @@ type Pipeline struct {
 
 func (p *Pipeline) Start(ctx context.Context) error {
 	pipelineStr := C.CString(`
-		rtpbin name=rtpbin rtp-profile=avpf sdes="application/x-rtp-source-sdes,cname=(string)\"mtun.io\""
+		rtpbin name=rtpbin rtp-profile=avpf do-retransmission=true latency=2000 sdes="application/x-rtp-source-sdes,cname=(string)\"mtun.io\""
 			appsrc name=rtpappsrc is-live=true format=time caps="application/x-rtp" ! rtpbin.recv_rtp_sink_0
 			rtpbin.send_rtcp_src_0 ! appsink name=rtcpappsink`)
 	defer C.free(unsafe.Pointer(pipelineStr))
