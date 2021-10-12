@@ -1,0 +1,8 @@
+{
+	"name": "GStreamer",
+	"build": {
+		"dockerfile": "Dockerfile",
+	},
+	"settings": {},
+	"extensions": ["golang.go", "ms-vscode.cpptools"],
+}

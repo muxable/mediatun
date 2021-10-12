@@ -1,0 +1,9 @@
+{
+	"name": "rtp",
+	"build": {
+		"dockerfile": "../Dockerfile",
+	},
+	"settings": {},
+	"extensions": ["golang.go", "ms-vscode.cpptools"],
+	"runArgs": ["--gpus", "all", "-e", "NVIDIA_DRIVER_CAPABILITIES=all", "--network", "host"]
+}

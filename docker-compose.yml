@@ -1,39 +1,89 @@
-version: "3.9"
+version: "3"
 
 services:
-  caddy:
-    image: caddy:2.0.0-alpine
+  web:
+    build:
+      context: web
+    entrypoint: /usr/bin/caddy run --config /etc/caddy/Caddyfile.json
+    image: gcr.io/mediatunnel-325914/web:latest
     ports:
       - 80:80
       - 443:443
     volumes:
       - caddy:/data
-      - ./web:/var/www/html
-      - ./Caddyfile:/etc/caddy/Caddyfile
     depends_on:
       - sfu
+    labels:
+      kompose.service.type: loadbalancer
+      kompose.service.expose: mtun.io
+      kompose.image-pull-policy: Always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 1m30s
+      timeout: 10s
+      retries: 3
       
   rtmp:
-    build: ./ingest/rtmp
+    build:
+      context: protocols
+      dockerfile: deployments/rtmp.Dockerfile
+    image: gcr.io/mediatunnel-325914/rtmp:latest
     ports:
-      - 1935:1935/tcp
+      - "1935"
+    depends_on:
+      - sfu
+    labels:
+      kompose.service.type: loadbalancer
+      kompose.service.expose: rtmp.mtun.io
+      kompose.image-pull-policy: Always
       
-  srt:
-    build: ./ingest/srt
-    ports:
-      - 1935:1935/udp
+  # srt:
+  #   build: ./protocols/srt
+  #   ports:
+  #     - 1935:1935/udp
+  # depends_on:
+  #     - sfu
 
-  rist:
-    build: ./ingest/rist
+  # rist:
+  #   build: ./protocols/rist
+  #   ports:
+  #     - 5000:5000/udp
+  # depends_on:
+  #     - sfu
+
+  rtp:
+    build:
+      context: rtp
+    image: gcr.io/mediatunnel-325914/rtp:latest
     ports:
-      - 5000:5000/udp
+      - 6000:6000/udp
+      - 6001:6001/udp
+    labels:
+      kompose.service.type: loadbalancer
+      kompose.service.expose: rtp.mtun.io
+      kompose.image-pull-policy: Always
+    depends_on:
+      - sfu
 
   sfu:
-    image: pionwebrtc/ion-sfu:latest-jsonrpc
+    build:
+      context: sfu
+    image: gcr.io/mediatunnel-325914/sfu:latest
     ports:
       - "5000-5200:5000-5200/udp"
+      - 7000:7000  # json-rpc
+      - 50051:50051 # grpc
     expose:
-      - "7000"
+      - "80"
+    labels:
+      kompose.service.type: loadbalancer
+      kompose.service.expose: sfu.mtun.io
+      kompose.image-pull-policy: Always
+    # healthcheck:
+    #   test: ["CMD", "/bin/grpc_health_probe", "-addr=:50051"]
+    #   interval: 1m30s
+    #   timeout: 10s
+    #   retries: 3
 
 volumes:
   caddy:

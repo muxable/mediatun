@@ -3,7 +3,7 @@ import { IonSFUJSONRPCSignal } from "ion-sdk-js/lib/signal/json-rpc-impl";
 import { v4 as uuidv4 } from "uuid";
 
 export default class MediaTunnel {
-  constructor(private uri: string = "ws://sfu.mediatun.muxable.com:7000/ws") {}
+  constructor(private uri: string = "wss://mtun.io/ws") {}
 
   async publish(stream: MediaStream) {
     const id = uuidv4();
@@ -35,13 +35,13 @@ export default class MediaTunnel {
 
     await new Promise<void>((resolve) => (signal.onopen = resolve));
 
-    const track = new Promise<MediaStream>(
-      (resolve) => (client.ontrack = (track, stream) => resolve(stream))
-    );
+    const output = new MediaStream();
+
+    client.ontrack = (track) => output.addTrack(track);
 
     await client.join(id, uuidv4());
 
-    return await track;
+    return output;
   }
 
   static async attach(video: HTMLVideoElement, stream: MediaStream) {
