@@ -6,8 +6,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-extern void goHandleVP8Buffer(void *, int, unsigned long, unsigned long, void *);
-extern void goHandleOpusBuffer(void *, int, unsigned long, unsigned long, void *);
+extern void goHandleVP8Buffer(void *, int, unsigned long, void *);
+extern void goHandleOpusBuffer(void *, int, unsigned long, void *);
 extern void goHandleRtcpAppSinkBuffer(void *, int, void *);
 
 void gstreamer_init(void);
