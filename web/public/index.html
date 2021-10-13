@@ -34,19 +34,7 @@ const stream = await window.navigator.getUserMedia();
 const id = await new MediaTunnel().publish(stream);
             </code>
         </pre>
-        <script>
-          function publish() {
-            navigator.mediaDevices
-              .getUserMedia({ video: true, audio: true })
-              .then(function (stream) {
-                return new MediaTunnel(uri).publish(stream);
-              })
-              .then(function (id) {
-                document.getElementById('publish-id').innerText = id;
-              });
-          }
-        </script>
-        <a href="#" onclick="javascript:publish()"><strong>Run</strong></a>
+        <a href="#" id="publish"><strong>Run</strong></a>
         <p>Stream ID: <code id="publish-id"></code></p>
         <hr />
         <p>Then take that stream id and play it below.</p>
@@ -61,17 +49,9 @@ const stream = await new MediaTunnel().play(id);
 await MediaTunnel.attach(document.getElementById('video'), stream);
             </code>
         </pre>
-        <script>
-          function play() {
-            var id = document.getElementById('play-id').value;
-            new MediaTunnel(uri).play(id).then(function (stream) {
-              MediaTunnel.attach(document.getElementById('video'), stream);
-            });
-          }
-        </script>
         <p>Stream ID: <input type="text" id="play-id" /></p>
         <div>
-          <a href="#" onclick="javascript:play()"><strong>Play</strong></a>
+          <a href="#" id="play"><strong>Play</strong></a>
         </div>
         <video id="video" width="640"></video>
         <hr />

@@ -1,6 +1,6 @@
 import MediaTunnel from '@muxable/mtun';
 
-var uri = 'wss://' + window.location.host + '/ws';
+var uri = 'ws://34.138.20.36:7000/ws';
 
 export function publish() {
   navigator.mediaDevices
@@ -31,3 +31,6 @@ export function play() {
     MediaTunnel.attach(video, stream);
   });
 }
+
+document.getElementById('publish')!.onclick = publish;
+document.getElementById('play')!.onclick = play;
