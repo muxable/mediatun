@@ -30,12 +30,10 @@ type Pipeline struct {
 func NewPipeline(RTCPSink func([]byte) (int, error), VP8SampleSink func(media.Sample) (int, error), OpusSampleSink func(media.Sample) (int, error)) *Pipeline {
 	pipelineStr := C.CString(`
 		rtpsession name=rtpsession rtp-profile=avpf sdes="application/x-rtp-source-sdes,cname=(string)\"mtun.io\""
-			appsrc name=rtpappsrc is-live=true format=time caps="application/x-rtp,encoding-name=MP2T,payload=(int)33,media=(string)video,clock-rate=90000" ! rtpsession.recv_rtp_sink
-			rtpsession.recv_rtp_src ! 
-				rtpjitterbuffer do-retransmission=true !
-				rtpmp2tdepay ! tsparse set-timestamps=true ! tsdemux name=demux
-					demux. ! queue ! h265parse config-interval=-1 ! nvh265dec ! videoconvert ! vp8enc error-resilient=partitions keyframe-max-dist=10 auto-alt-ref=true cpu-used=5 deadline=1 ! queue ! appsink name=vp8appsink
-					demux. ! queue ! opusparse ! queue ! appsink name=opusappsink
+			appsrc name=rtpappsrc is-live=true format=time ! rtpsession.recv_rtp_sink
+			rtpsession.recv_rtp_src ! rtpjitterbuffer do-retransmission=true ! rtpptdemux name=demux
+				demux.src_96 ! queue ! h265parse config-interval=-1 ! nvh265dec ! videoconvert ! vp8enc error-resilient=partitions keyframe-max-dist=10 auto-alt-ref=true cpu-used=5 deadline=1 ! queue ! appsink name=vp8appsink
+				demux.src_111 ! queue ! opusparse ! queue ! appsink name=opusappsink
 			rtpsession.send_rtcp_src ! appsink name=rtcpappsink async=false sync=false`)
 	defer C.free(unsafe.Pointer(pipelineStr))
 

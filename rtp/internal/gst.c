@@ -121,13 +121,11 @@ static GstCaps *gstreamer_request_pt_map(GstElement *rtpbin, guint session, guin
                                    "payload", G_TYPE_INT, 96,
                                    "media", G_TYPE_STRING, "video",
                                    "clock-rate", G_TYPE_INT, 90000,
-                                   "encoding-name", G_TYPE_STRING, "VP8",
-                                   "extmap-5", G_TYPE_STRING, "http://www.ietf.org/id/draft-holmer-rmcat-transport-wide-cc-extensions-01",
+                                   "encoding-name", G_TYPE_STRING, "H265",
                                    NULL);
     }
     else if (pt == 111)
     {
-
         return gst_caps_new_simple("application/x-rtp",
                                    "payload", G_TYPE_INT, 111,
                                    "media", G_TYPE_STRING, "audio",
@@ -181,6 +179,13 @@ GstElement *gstreamer_start(char *pipelineStr, void *data)
     GstBus *bus = gst_pipeline_get_bus(GST_PIPELINE(pipeline));
     gst_bus_add_watch(bus, gstreamer_bus_call, NULL);
     gst_object_unref(bus);
+
+    GstElement *rtpsession = gst_bin_get_by_name(GST_BIN(pipeline), "rtpsession");
+    if (rtpsession != NULL)
+    {
+        g_signal_connect(rtpsession, "new-sample", G_CALLBACK(gstreamer_request_pt_map), data);
+        gst_object_unref(rtpsession);
+    }
 
     GstElement *rtcpappsink = gst_bin_get_by_name(GST_BIN(pipeline), "rtcpappsink");
     if (rtcpappsink != NULL)
