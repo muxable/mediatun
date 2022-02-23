@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "ion-sdk-js": "./ion-sdk-js.js",
+    "ion-sdk-js/lib/signal/json-rpc-impl": "./ion-sdk-js/lib/signal/json-rpc-impl.js",
+    "uuid": "./uuid.js"
+  }
+}
