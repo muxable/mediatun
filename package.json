@@ -8,8 +8,7 @@
   "scripts": {
     "start": "snowpack dev",
     "build:web": "snowpack build",
-    "build:api": "tsc && rollup -c",
-    "prepare": "npm run build:api"
+    "build:api": "tsc && rollup -c"
   },
   "files": [
     "lib/**/*"
