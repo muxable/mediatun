@@ -1,0 +1,7 @@
+{
+  "hosting": {
+    "site": "mediatunnel",
+    "public": "build",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  }
+}
