@@ -1,61 +1,67 @@
-import { Client, LocalStream } from 'ion-sdk-js';
-import { IonSFUJSONRPCSignal } from 'ion-sdk-js/lib/signal/json-rpc-impl';
-import { v4 as uuidv4 } from 'uuid';
-
 export default class MediaTunnel {
   constructor(private uri: string = 'wss://mtun.io/ws') {}
 
-  async publish(stream: MediaStream) {
-    const id = uuidv4();
-
-    const signal = new IonSFUJSONRPCSignal(this.uri);
-
-    const client = new Client(signal);
-
-    await new Promise<void>((resolve) => (signal.onopen = resolve));
-    await client.join(id, id);
-
-    client.publish(
-      new LocalStream(stream, {
-        codec: 'vp8',
-        resolution: 'hd',
-        audio: false,
-        video: true,
-        simulcast: false,
-      }),
-    );
-
-    return id;
-  }
-
   async play(id: string) {
-    const signal = new IonSFUJSONRPCSignal(this.uri);
-
-    const client = new Client(signal);
-
-    await new Promise<void>((resolve) => (signal.onopen = resolve));
-
     let videoStream: MediaStream | null = null;
     let videoElement: HTMLVideoElement | null = null;
 
-    client.ontrack = (track, stream) => {
-      console.log('track', track, stream);
-      if (track.kind === 'video') {
-        videoStream = stream;
-        if (videoElement) {
-          videoElement.srcObject = stream;
-          videoElement.play();
+    const connect = async () => {
+      const signal = new WebSocket(this.uri + '?sid=' + id);
+
+      await new Promise((resolve) => (signal.onopen = resolve));
+
+      const pc = new RTCPeerConnection({
+        iceServers: [
+          {
+            urls: 'stun:stun.l.google.com:19302',
+          },
+        ],
+      });
+
+      pc.addEventListener('icecandidate', (event) => {
+        if (!event.candidate) {
+          return;
         }
-      } else {
-        const audioContext = new AudioContext();
-        const sourceNode = audioContext.createMediaStreamSource(stream);
-        sourceNode.connect(audioContext.destination);
-        // https://stackoverflow.com/a/63844077/86433
-        new Audio().srcObject = stream;
-      }
+        signal.send(JSON.stringify({ candidate: event.candidate.toJSON() }));
+      });
+
+      pc.addEventListener('track', (event) => {
+        const stream = event.streams[0];
+        if (event.track.kind === 'video') {
+          videoStream = stream;
+          if (videoElement) {
+            videoElement.srcObject = stream;
+            videoElement.play();
+          }
+        } else {
+          const audioContext = new AudioContext();
+          const sourceNode = audioContext.createMediaStreamSource(stream);
+          sourceNode.connect(audioContext.destination);
+          // https://stackoverflow.com/a/63844077/86433
+          new Audio().srcObject = stream;
+        }
+      });
+
+      signal.addEventListener('message', async (event) => {
+        const data = JSON.parse(event.data);
+        if (data.sdp) {
+          await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          signal.send(JSON.stringify({ sdp: pc.localDescription }));
+        }
+        if (data.candidate) {
+          pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        }
+        if (data.error) {
+          throw new Error(data.error);
+        }
+      });
+
+      signal.addEventListener('close', () => connect());
     };
 
-    await client.join(id, uuidv4());
+    await connect();
 
     return (video: HTMLVideoElement) => {
       videoElement = video;
